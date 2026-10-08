@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Urban Cinema — Mini App</title>
+  <link rel="stylesheet" href="/miniapp/styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="site-header">
+      <h1>Urban Cinema</h1>
+      <div class="controls">
+        <button id="connect-wallet">Connect Wallet</button>
+        <button id="connect-phantom">Connect Phantom</button>
+        <button id="pay-stars">Pay with Telegram Stars</button>
+        <button id="pay-wallet">Pay with Wallet</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="catalog">
+        <h2>Now Showing (Public Domain Samples)</h2>
+        <ul id="catalog-list"></ul>
+      </section>
+
+      <section class="player">
+        <video id="video-player" controls playsinline></video>
+      </section>
+
+      <aside id="wallet-drawer" class="drawer hidden">
+        <h3>Connected Wallets</h3>
+        <pre id="wallet-info">None</pre>
+        <button id="close-drawer">Close</button>
+      </aside>
+    </main>
+
+    <footer>
+      <small>Prices shown in USD (estimate). Telegram Stars used for in-app purchases by policy.</small>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.2/dist/hls.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/sdk@0.7.0/dist/tonconnect.umd.js"></script>
+  <script src="/miniapp/app.js"></script>
+</body>
+</html>
