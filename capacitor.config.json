@@ -1,0 +1,5 @@
+{
+  "appId": "com.example.telegramweb",
+  "appName": "Telegram Web",
+  "webDir": "dist"
+}

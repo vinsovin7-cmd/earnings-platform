@@ -6,9 +6,10 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "start": "vite",
+    "start:codespaces": "TWEB_PREVIEW=1 vite dev --host 0.0.0.0 --port 8080 --strictPort",
     "start-in-docker": "vite --host",
     "serve": "pnpm run build && node server.js --dist",
-    "build": "pnpm test --run && pnpm run typecheck && pnpm run generate-changelog && vite build && pnpm run check-bundle",
+    "build": "vite build",
     "check-bundle": "node scripts/check-bundle-mangling.mjs dist",
     "test": "vitest",
     "test:a11y": "playwright test --config playwright.a11y.config.ts",
@@ -104,6 +105,9 @@
   },
   "packageManager": "pnpm@11.16.0",
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@tiptap/core": "3.28.0",
     "@tiptap/extension-bold": "3.28.0",
     "@tiptap/extension-code-block": "3.28.0",

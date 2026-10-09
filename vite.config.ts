@@ -65,6 +65,10 @@ const handlebarsPlugin = handlebars({
 const USE_SSL = false;
 const USE_SIGNED_CERTS = USE_SSL && true;
 const USE_SELF_SIGNED_CERTS = USE_SSL && false;
+const CODESPACE_PREVIEW_HOST = process.env.CODESPACES && process.env.CODESPACE_NAME &&
+  process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN ?
+  `${process.env.CODESPACE_NAME}-8080.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}` :
+  undefined;
 
 // * mkdir certs; cd certs
 // * mkcert web.telegram.org
@@ -88,8 +92,12 @@ const USE_DEV_HTTP2 = !USE_SSL && !process.env.TWEB_PREVIEW && !process.env.VITE
   existsSync(DEV_HTTP2_KEY) && existsSync(DEV_HTTP2_CERT);
 
 const serverOptions: ServerOptions = {
-  host,
+  host: process.env.CODESPACES ? '0.0.0.0' : host,
   port: USE_SSL ? 443 : 8080,
+  allowedHosts: CODESPACE_PREVIEW_HOST ? [CODESPACE_PREVIEW_HOST] : undefined,
+  hmr: {
+    overlay: false
+  },
   fs: {
     allow: [...SERVER_FS_ALLOW],
     // Vite's defaults plus tmp/: it holds auth seeds and other credentials, and bundles that boot
@@ -274,13 +282,14 @@ export default defineConfig({
     emptyOutDir: true,
     minify: NO_MINIFY ? false : undefined,
     rolldownOptions: {
+      input: {
+        main: './index.html',
+        rewardsPreview: './rewards-preview.html',
+        cinema: './cinema.html'
+      },
       output: {
         sourcemapIgnoreList: serverOptions.sourcemapIgnoreList
       }
-      // input: {
-      //   main: './index.html',
-      //   sw: './src/index.service.ts'
-      // }
     }
     // cssCodeSplit: true
   },

@@ -1,0 +1,2 @@
+import{n as e,t}from"./peerTypeSection-BSff07vk.js";var n=e(e=>{e.scrollable.append(t(`photo`,`AutoDownloadPhotosTitle`,e.middlewareHelper.get()))});export{n as default};
+//# sourceMappingURL=photo-BtOFOc0h.js.map
