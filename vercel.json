@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/cinema", "destination": "/cinema.html" },
     { "source": "/miniapp/(.*)", "destination": "/miniapp/$1" }
   ],
   "headers": [

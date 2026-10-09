@@ -98,40 +98,12 @@ async function connectPhantom(){
   }
 }
 
-// Mock pay with wallet: for demo, sign a message if wallet available
-async function payWithWallet(){
-  if(tonAccount && tonAccount.name){
-    // TonConnect signature flow would go here — simulate success
-    const r = await fetch('/api/mock-purchase', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({method:'ton',account:tonAccount})});
-    const j = await r.json();
-    alert('Wallet payment (TON) simulated: '+ j.status);
-    return;
-  }
-  const phantom = window.solana;
-  if(phantom && phantom.isPhantom){
-    try{
-      const message = new TextEncoder().encode('Purchase access');
-      const signed = await phantom.signMessage(message, 'utf8');
-      const r = await fetch('/api/mock-purchase', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({method:'solana',pubkey:phantom.publicKey?.toString(),signed})});
-      const j = await r.json();
-      alert('Wallet payment (Solana) simulated: '+ j.status);
-      return;
-    }catch(e){
-      console.warn(e);
-      alert('Phantom payment failed or cancelled');
-      return;
-    }
-  }
-  alert('No wallet connected. Use connect buttons first.');
+function payWithWallet(){
+  alert('Wallet checkout is unavailable. No payment or payout was made.');
 }
 
-// Pay with Telegram Stars (in-app): open a small UI explaining how to create an invoice via bot; actual sendInvoice must be done server-side via bot token.
 function payWithStars(){
-  // In a Mini App context inside Telegram the Bot typically sends invoice messages from the bot itself.
-  // Here we show a helpful modal and a copyable deep link that the bot can use to create the invoice.
-  const sampleStartParam = 'urban-cinema-' + (Date.now());
-  const botDeepLink = `https://t.me/YourBot?start=${sampleStartParam}`;
-  prompt('To proceed with Telegram Stars purchase, the bot must send an invoice to the user. Use this deep-link for testing or contact the merchant bot admin:', botDeepLink);
+  alert('Telegram Stars checkout is unavailable. No invoice was created.');
 }
 
 function wireUi(){
