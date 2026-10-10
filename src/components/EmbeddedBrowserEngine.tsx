@@ -1,10 +1,11 @@
 import {JSX} from 'solid-js';
 
-export type CinemaSection = 'cinema' | 'live' | 'rewards';
+export type CinemaSection = 'cinema' | 'live' | 'rewards' | 'shop';
 
 export default function EmbeddedBrowserEngine(props: {
   activeSection: CinemaSection,
   onSectionChange: (section: CinemaSection) => void,
+  headerStatus?: JSX.Element,
   children: JSX.Element
 }) {
   const telegramWebApp = (window as Window & {
@@ -51,11 +52,21 @@ export default function EmbeddedBrowserEngine(props: {
           >
             Rewards
           </button>
+          <button
+            type="button"
+            class="cinema-nav-item"
+            classList={{'is-active': props.activeSection === 'shop'}}
+            aria-current={props.activeSection === 'shop' ? 'page' : undefined}
+            onClick={() => props.onSectionChange('shop')}
+          >
+            SreyShop
+          </button>
         </nav>
-        <span class="cinema-context">
+        <div class="cinema-context">
           <span class="cinema-context-dot" aria-hidden="true"></span>
           {telegramWebApp ? 'TELEGRAM MINI APP' : 'WEB APP'}
-        </span>
+          {props.headerStatus}
+        </div>
       </header>
       {props.children}
       <footer class="cinema-bottom-bar">

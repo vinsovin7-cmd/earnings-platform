@@ -18,6 +18,7 @@ import {basename, dirname, join, normalize, resolve} from 'path';
 import {spawn, ChildProcess} from 'child_process';
 import express from 'express';
 import baseConfig from './vite.config';
+import tonConnectManifest from './scripts/tonConnectManifest';
 
 const seedPath = process.env.PREVIEW_SEED ?
   resolve(process.env.PREVIEW_SEED) :
@@ -260,6 +261,14 @@ export default mergeConfig(baseConfig as any, {
     'import.meta.env.VITE_NO_WORKER': JSON.stringify(process.env.TWEB_NO_WORKER === '1')
   },
   plugins: [{
+    name: 'preview-tonconnect-manifest',
+    configureServer(server: any) {
+      server.middlewares.use(tonConnectManifest);
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use(tonConnectManifest);
+    }
+  }, {
     // `vite preview` (start-preview.sh --static) answers every asset with
     // `Cache-Control: no-cache`, so a phone reloading over the network would
     // revalidate ~100 files one by one — each a round trip to this machine.

@@ -3,6 +3,7 @@ const express = require('express');
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
+const resolvePort = require('./serverPort');
 
 const app = express();
 
@@ -13,7 +14,7 @@ const useHttp = process.argv[4] !== 'https';
 const publicFolderName = thirdTour ? 'public3' : 'public';
 const serveDist = process.argv.includes('--dist');
 const indexFolderName = serveDist ? 'dist' : publicFolderName;
-const port = forcePort ? +forcePort : (thirdTour ? 8443 : 80);
+const port = resolvePort(forcePort, process.env.PORT, thirdTour);
 
 app.set('etag', false);
 app.use((req, res, next) => {

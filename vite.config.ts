@@ -14,6 +14,7 @@ import {watchLangFile} from './watch-lang.js';
 import {watchScssTypes} from './scss-types.js';
 import devChecks from './scripts/dev-checks.mjs';
 import settingsSearchPlugin from './scripts/settings-search-plugin.mjs';
+import tonConnectManifest from './scripts/tonConnectManifest';
 import path from 'path';
 
 const rootDir = resolve(__dirname);
@@ -194,6 +195,12 @@ export default defineConfig({
     process.env.VITEST ? undefined : settingsSearchPlugin(rootDir),
     solidPlugin(),
     handlebarsPlugin as any,
+    {
+      name: 'tonconnect-manifest',
+      configureServer(server) {
+        server.middlewares.use(tonConnectManifest);
+      }
+    },
     USE_SELF_SIGNED_CERTS ? basicSsl(BASIC_SSL_CONFIG) : undefined,
     // Only emit the bundle treemap (stats.html) when explicitly analyzing (ANALYZE=1):
     // it adds build time and writes a ~1.3MB file that otherwise gets globbed into the

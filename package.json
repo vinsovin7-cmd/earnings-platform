@@ -121,6 +121,7 @@
     "@tiptap/extension-underline": "3.28.0",
     "@tiptap/extensions": "3.28.0",
     "@tiptap/pm": "3.28.0",
+    "@tonconnect/ui": "3.0.2",
     "temml": "^0.13.3"
   }
 }
