@@ -271,7 +271,7 @@ export default defineConfig({
     // page survives that with a full reload — a worker just fails to load with
     // an empty error event, which is what killed every conference call with
     // "An error occurred".
-    entries: ['index.html', 'src/**/*.worker.{ts,js}']
+    entries: ['index.html', 'cinema.html', 'src/**/*.worker.{ts,js}']
   },
   build: {
     target: 'es2020',

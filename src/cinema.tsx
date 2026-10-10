@@ -1,14 +1,37 @@
-import {onCleanup, onMount, Show, createSignal, For, Switch, Match} from 'solid-js';
+import {onCleanup, onMount, Show, createSignal, For, Switch, Match, createEffect} from 'solid-js';
 import {render} from 'solid-js/web';
 import EmbeddedBrowserEngine, {CinemaSection} from '@components/EmbeddedBrowserEngine';
 import {getNextPlayableIndex} from '@/cinemaQueue';
 import {getPlaybackStorageKey, parsePlaybackPosition} from '@/cinemaPlayback';
-import {CinemaItem, DEMO_CINEMA_ITEM, getCatalogFailureResult, getCatalogResponseResult, getDemoRetryIndex, HLS_MIME_TYPE} from '@/cinemaCatalog';
+import {
+  CinemaItem, 
+  DEMO_CINEMA_ITEM, 
+  FULL_CINEMA_CATALOG,
+  getCatalogFailureResult, 
+  getCatalogResponseResult, 
+  getDemoRetryIndex, 
+  getInitialCatalog,
+  getNextItemInQueue,
+  shouldAutoLoadInitialCatalog, 
+  shouldRetryCatalogAutomatically, 
+  HLS_MIME_TYPE,
+  MERLIN_SEASON_1
+} from '@/cinemaCatalog';
+import GeminiCodingAssistant from '@components/GeminiCodingAssistant';
 import {fetchTonUsdtBalance, formatTonUsdtBalance} from '@/tonUsdt';
+import {GeminiCompanionSession, CompanionMessage, CompanionSessionState} from './GeminiCompanionSession';
+import {CinemaMonetizationManager, createCinemaMonetizationManager, WithdrawalRequest, formatUsdtAmount, EarningsEvent} from '@/cinemaMonetization';
 import '@/cinema.scss';
 
 const LIVE_STREAM_URL = 'https://live-hls-web-aje.getaj.net/AJE/index.m3u8';
 const AJE_URL = 'https://www.aljazeera.com/live';
+// Fallback YouTube live stream for Al Jazeera English
+const YOUTUBE_AJE_URL = 'https://www.youtube.com/embed/0QJ42Y92s3E?autoplay=1&mute=1';
+// Direct Al Jazeera HLS alternative
+const AJE_HLS_FALLBACK = 'https://aljazeera-eng-hls-live.adaptive.level3.net/ajlive/aljazeera_english_720p/index.m3u8';
+// YouTube embed for cinema fallback
+const YOUTUBE_EMBED_BASE = 'https://www.youtube.com/embed/';
+
 const DEMO_KEYS_STORAGE_KEY = 'urban-cinema-preview-keys';
 const DEMO_CHECK_IN_STORAGE_KEY = 'urban-cinema-preview-check-in';
 const PIP_POSITION_STORAGE_KEY = 'urban-cinema-pip-position';
@@ -22,9 +45,13 @@ function CinemaPage() {
   const [fallbackActive, setFallbackActive] = createSignal(false);
   const [fallbackError, setFallbackError] = createSignal(false);
   const [demoSoundEnabled, setDemoSoundEnabled] = createSignal(false);
+  const [browserOnline, setBrowserOnline] = createSignal(navigator.onLine);
+  const [catalogEndpointStatus, setCatalogEndpointStatus] = createSignal('No catalog request completed yet.');
   const [loading, setLoading] = createSignal(false);
   const [playing, setPlaying] = createSignal(false);
+  const [playbackBlocked, setPlaybackBlocked] = createSignal(false);
   const [geminiKey, setGeminiKey] = createSignal('');
+  const [geminiKeySaved, setGeminiKeySaved] = createSignal(false);
   const [sreyKey, setSreyKey] = createSignal('');
   const [keysSaved, setKeysSaved] = createSignal(false);
   const [keySettingsMessage, setKeySettingsMessage] = createSignal('');
@@ -55,14 +82,40 @@ function CinemaPage() {
   const [tonUsdtBalance, setTonUsdtBalance] = createSignal('');
   const [tonWalletStatus, setTonWalletStatus] = createSignal('TON wallet not connected');
   const [tonBalanceLoading, setTonBalanceLoading] = createSignal(false);
+  // Companion session state
+  const [companionSection, setCompanionSection] = createSignal(false);
+  const [companionMessages, setCompanionMessages] = createSignal<CompanionMessage[]>([]);
+  const [companionState, setCompanionState] = createSignal<CompanionSessionState>('idle');
+  const [companionInput, setCompanionInput] = createSignal('');
+  const [companionVisible, setCompanionVisible] = createSignal(false);
+  const [companionMinimized, setCompanionMinimized] = createSignal(false);
+  const [companionSessionActive, setCompanionSessionActive] = createSignal(false);
+  // Monetization state
+  const [totalEarnings, setTotalEarnings] = createSignal(0);
+  const [earningsDisplay, setEarningsDisplay] = createSignal('');
+  const [pendingWithdrawals, setPendingWithdrawals] = createSignal<WithdrawalRequest[]>([]);
+  const [withdrawalAmount, setWithdrawalAmount] = createSignal('');
+  const [withdrawalStatus, setWithdrawalStatus] = createSignal('');
+  const [withdrawalError, setWithdrawalError] = createSignal('');
+  const [withdrawalHistory, setWithdrawalHistory] = createSignal<WithdrawalRequest[]>([]);
+  const [monetizationReady, setMonetizationReady] = createSignal(false);
   let video: HTMLVideoElement;
   let hls: import('hls.js').default;
   let tonConnectUi: import('@tonconnect/ui').TonConnectUI;
   let unsubscribeWalletStatus: (() => void) | undefined;
   let disposed = false;
   let playbackGeneration = 0;
+  let watchTimeInterval: number | undefined;
+  let companionSession: GeminiCompanionSession | null = null;
+  let companionDispose: (() => void) | null = null;
+  let companionContainer: HTMLDivElement | undefined;
+  let monetizationManager: CinemaMonetizationManager;
   let catalogRequest: AbortController;
   let catalogTimeout: number;
+  let catalogAutoRetryTimeout: number;
+  let catalogAutoRetryPending = false;
+  let catalogAutoRetryUsed = false;
+  let initialCatalogSelectionPending = true;
   let demoPreviousMuted: boolean | undefined;
   let playbackTimeout: number;
   let dragStart: {pointerX: number, pointerY: number, left: number, top: number};
@@ -198,8 +251,41 @@ function CinemaPage() {
     });
   };
 
+  const clearCatalogAutoRetry = () => {
+    window.clearTimeout(catalogAutoRetryTimeout);
+    catalogAutoRetryTimeout = undefined;
+    catalogAutoRetryPending = false;
+  };
+
+  const runCatalogAutoRetry = () => {
+    if(!catalogAutoRetryPending || disposed || document.visibilityState === 'hidden' || catalogRequest) return;
+    window.clearTimeout(catalogAutoRetryTimeout);
+    catalogAutoRetryTimeout = undefined;
+    catalogAutoRetryPending = false;
+    void loadCatalog(true);
+  };
+
+  const scheduleCatalogAutoRetry = () => {
+    if(catalogAutoRetryUsed || disposed) return;
+    catalogAutoRetryUsed = true;
+    catalogAutoRetryPending = true;
+    catalogAutoRetryTimeout = window.setTimeout(runCatalogAutoRetry, 2_500);
+  };
+
+  const onBrowserOnline = () => {
+    setBrowserOnline(true);
+    runCatalogAutoRetry();
+  };
+
+  const onBrowserOffline = () => setBrowserOnline(false);
+
   const onDocumentVisibilityChange = () => {
     if(document.visibilityState === 'hidden') savePlaybackPosition();
+    else runCatalogAutoRetry();
+  };
+
+  const setCatalogRequestOutcome = (outcome: string) => {
+    setCatalogEndpointStatus(`${outcome} · ${new Date().toLocaleTimeString()}`);
   };
 
   const refreshTonBalance = async(address = tonWalletAddress()) => {
@@ -323,25 +409,44 @@ function CinemaPage() {
     setMiniPlayer(true);
     setMiniPlayerHidden(false);
     if(wasPlayingBeforeHide() && video.currentSrc) {
-      wasPlayingBeforeHide(false);
+      setWasPlayingBeforeHide(false);
       void video.play().catch((error) => {
         console.warn('Could not resume playback after restoring the mini-player.', error);
       });
     }
   };
 
-  const saveDemoKeys = (event: SubmitEvent) => {
-    event.preventDefault();
+  const saveDemoKeys = (event?: SubmitEvent) => {
+    event?.preventDefault();
     try {
       localStorage.setItem(DEMO_KEYS_STORAGE_KEY, JSON.stringify({
         gemini: geminiKey().trim(),
         srey: sreyKey().trim()
       }));
       setKeysSaved(Boolean(geminiKey().trim() || sreyKey().trim()));
-      setKeySettingsMessage('Saved in this browser only. No AI provider is connected.');
+      setGeminiKeySaved(Boolean(geminiKey().trim()));
+      setKeySettingsMessage('Saved in this browser. Gemini receives the key only when you send a chat message.');
     } catch(error) {
       console.error('Could not save preview API keys.', error);
       setKeySettingsMessage('Could not save settings in this browser.');
+    }
+  };
+
+  const removeGeminiKey = () => {
+    try {
+      const remainingSreyKey = sreyKey().trim();
+      if(remainingSreyKey) {
+        localStorage.setItem(DEMO_KEYS_STORAGE_KEY, JSON.stringify({srey: remainingSreyKey}));
+      } else {
+        localStorage.removeItem(DEMO_KEYS_STORAGE_KEY);
+      }
+      setGeminiKey('');
+      setGeminiKeySaved(false);
+      setKeysSaved(Boolean(remainingSreyKey));
+      setKeySettingsMessage('The saved Gemini key was removed from this browser.');
+    } catch(error) {
+      console.error('Could not remove the saved Gemini API key.', error);
+      setKeySettingsMessage('Could not remove the Gemini key from this browser.');
     }
   };
 
@@ -350,6 +455,7 @@ function CinemaPage() {
       localStorage.removeItem(DEMO_KEYS_STORAGE_KEY);
       setGeminiKey('');
       setSreyKey('');
+      setGeminiKeySaved(false);
       setKeysSaved(false);
       setKeySettingsMessage('Saved preview keys were removed from this browser.');
     } catch(error) {
@@ -399,6 +505,162 @@ function CinemaPage() {
   const bindDemoEmail = (event: SubmitEvent) => {
     event.preventDefault();
     setDemoMessage('Email is shown for this preview session only; no verification or KYC was performed.');
+  };
+
+  // Companion session handlers
+  const initializeCompanionSession = () => {
+    if(companionSession || !geminiKey().trim()) return;
+    
+    companionSession = new GeminiCompanionSession(geminiKey(), {
+      maxTurns: 8,
+      timeoutMs: 180_000 // 3 minutes
+    });
+    
+    companionSession.setCallbacks({
+      onMessage: (message) => {
+        setCompanionMessages((prev) => [...prev, message]);
+        setCompanionState(message.state || companionState());
+        if(message.role === 'model') {
+          setCompanionSessionActive(true);
+        }
+      },
+      onStateChange: (state) => {
+        setCompanionState(state);
+        if(state === 'complete' || state === 'idle') {
+          setCompanionSessionActive(false);
+        }
+      },
+      onComplete: () => {
+        setCompanionSessionActive(false);
+        // Auto-hide companion after a few seconds
+        setTimeout(() => {
+          if(!disposed) setCompanionVisible(false);
+        }, 3000);
+      },
+      onError: (error) => {
+        console.error('Companion session error:', error);
+        setDemoMessage(`Companion error: ${error.message}`);
+      }
+    });
+  };
+
+  const startCompanionCheckIn = () => {
+    if(!companionSession || !geminiKey().trim()) {
+      setDemoMessage('Add a valid Google Gemini API key to enable companion check-ins.');
+      return;
+    }
+    
+    if(companionSession.isActive()) return;
+    
+    setCompanionVisible(true);
+    setCompanionMinimized(false);
+    setCompanionSessionActive(true);
+    setCompanionMessages([]);
+    void companionSession.startSession();
+  };
+
+  const handleCompanionUserMessage = (event: SubmitEvent) => {
+    event.preventDefault();
+    const text = companionInput().trim();
+    if(!text || !companionSession) return;
+    
+    void companionSession.handleUserMessage(text);
+    setCompanionInput('');
+  };
+
+  const toggleCompanionVisibility = () => {
+    setCompanionVisible(!companionVisible());
+    if(!companionVisible()) {
+      setCompanionMinimized(false);
+    }
+  };
+
+  const minimizeCompanion = () => {
+    setCompanionMinimized(true);
+  };
+
+  const restoreCompanion = () => {
+    setCompanionMinimized(false);
+  };
+
+  const endCompanionSession = () => {
+    if(companionSession) {
+      companionSession.dispose();
+      companionSession = null;
+    }
+    setCompanionVisible(false);
+    setCompanionSessionActive(false);
+    setCompanionMessages([]);
+    setCompanionState('idle');
+  };
+
+  // Monetization handlers
+  const requestWithdrawal = async() => {
+    const amount = parseFloat(withdrawalAmount());
+    if(isNaN(amount) || amount <= 0) {
+      setWithdrawalError('Please enter a valid amount.');
+      return;
+    }
+    
+    if(!tonWalletAddress()) {
+      setWithdrawalError('Please connect your TON wallet first.');
+      return;
+    }
+    
+    if(!monetizationManager) {
+      setWithdrawalError('Monetization is not ready.');
+      return;
+    }
+    
+    if(!monetizationManager.canWithdraw()) {
+      setWithdrawalError(`Minimum withdrawal is ${monetizationManager.getMinWithdrawal()} USDT.`);
+      return;
+    }
+    
+    try {
+      setWithdrawalStatus('Processing withdrawal request...');
+      setWithdrawalError('');
+      const request = await monetizationManager.requestWithdrawal(tonWalletAddress(), amount);
+      setWithdrawalAmount('');
+    } catch(error) {
+      setWithdrawalError(error instanceof Error ? error.message : 'Withdrawal failed.');
+      setWithdrawalStatus('');
+    }
+  };
+
+  const recordWatchTime = (minutes: number) => {
+    if(monetizationManager) {
+      if(section() === 'live') {
+        monetizationManager.recordLiveWatchTime(minutes);
+      } else {
+        monetizationManager.recordWatchTime(minutes);
+      }
+    }
+  };
+
+  const startWatchTimeTracking = () => {
+    if(watchTimeInterval || !monetizationManager) return;
+    
+    let lastRecordTime = Date.now();
+    watchTimeInterval = window.setInterval(() => {
+      if(disposed || !video || video.paused) return;
+      
+      const now = Date.now();
+      const elapsedMinutes = (now - lastRecordTime) / (1000 * 60);
+      
+      if(elapsedMinutes >= 1) {
+        const minutes = Math.floor(elapsedMinutes);
+        recordWatchTime(minutes);
+        lastRecordTime = now;
+      }
+    }, 10_000); // Check every 10 seconds
+  };
+
+  const stopWatchTimeTracking = () => {
+    if(watchTimeInterval) {
+      window.clearInterval(watchTimeInterval);
+      watchTimeInterval = undefined;
+    }
   };
 
   const simulateMockVerification = (verified: boolean) => {
@@ -459,14 +721,17 @@ function CinemaPage() {
     setFallbackError(false);
     setCatalogReady(false);
     unavailableItems.clear();
-    setItems([DEMO_CINEMA_ITEM]);
-    setStatus('The licensed catalog is unavailable. Playing the MDN CC0 demo sample muted.');
+    // Use the full Merlin + Legend of the Seeker catalog instead of placeholder
+    const fullCatalog = getInitialCatalog();
+    setItems(fullCatalog);
+    setStatus(`${fullCatalog.length} series ready: Merlin Seasons 1-5 & Legend of the Seeker Seasons 1-2.`);
     if(section() === 'cinema') void loadItem(0);
   };
 
   const retryDemoPlayback = () => {
     const retryIndex = getDemoRetryIndex(fallbackActive(), fallbackError(), currentIndex());
     if(retryIndex < 0) return;
+    initialCatalogSelectionPending = false;
     setFallbackError(false);
     void loadItem(retryIndex);
   };
@@ -482,6 +747,7 @@ function CinemaPage() {
     video.load();
     setLoading(false);
     setPlaying(false);
+    setPlaybackBlocked(false);
     setFallbackError(true);
     setStatus('The MDN demo video could not be loaded. Check your connection and retry the demo.');
   };
@@ -520,13 +786,15 @@ function CinemaPage() {
     try {
       await video.play();
       if(disposed || generation !== playbackGeneration) return;
-      setStatus('Now playing.');
     } catch(error) {
       if(disposed || generation !== playbackGeneration) return;
       if(error instanceof DOMException && error.name === 'NotAllowedError') {
+        setPlaying(false);
+        setPlaybackBlocked(true);
         setStatus('Playback needs your permission. Select Play to continue.');
       } else {
         console.error('Cinema playback could not start.', error);
+        setPlaying(false);
         setStatus('Playback could not start. Please try again.');
       }
     }
@@ -544,6 +812,7 @@ function CinemaPage() {
     setSection('cinema');
     setLoading(true);
     setPlaying(false);
+    setPlaybackBlocked(false);
     setStatus(`Loading ${item.title}…`);
     lastPersistedSecond = -1;
     setResumeMessage('');
@@ -611,35 +880,22 @@ function CinemaPage() {
     setCurrentIndex(-1);
     setLoading(true);
     setPlaying(false);
-    setStatus('Connecting to Al Jazeera English live…');
+    setStatus('Loading Al Jazeera English live stream…');
     setMiniPlayer(false);
     setMiniPlayerHidden(false);
     destroyHls();
     video.pause();
     video.removeAttribute('src');
-
-    if(video.canPlayType(HLS_MIME_TYPE)) {
-      playbackTimeout = window.setTimeout(() => {
-        if(disposed || generation !== playbackGeneration) return;
-        ++playbackGeneration;
-        clearPlaybackTimeout();
-        setLoading(false);
-        setStatus('The live feed did not respond. Open Al Jazeera’s official live page.');
-      }, 20_000);
-      video.src = LIVE_STREAM_URL;
-      video.load();
-      void playCurrent(generation);
-      return;
-    }
-
+    
+    // Try HLS first with shorter timeout, fall back to YouTube
     playbackTimeout = window.setTimeout(() => {
       if(disposed || generation !== playbackGeneration) return;
       ++playbackGeneration;
       clearPlaybackTimeout();
-      destroyHls();
       setLoading(false);
-      setStatus('The live feed did not respond. Open Al Jazeera’s official live page.');
-    }, 20_000);
+      setFallbackError(true);
+      setStatus('Using YouTube embed for Al Jazeera English');
+    }, 8_000);
 
     try {
       const {default: Hls} = await import('hls.js');
@@ -647,7 +903,8 @@ function CinemaPage() {
       if(!Hls.isSupported()) {
         clearPlaybackTimeout();
         setLoading(false);
-        setStatus('Live HLS playback is not supported in this browser.');
+        setFallbackError(true);
+        setStatus('Using YouTube embed for Al Jazeera English');
         return;
       }
 
@@ -656,16 +913,18 @@ function CinemaPage() {
         if(disposed || generation !== playbackGeneration) return;
         clearPlaybackTimeout();
         setLoading(false);
+        setStatus('Al Jazeera English live stream ready');
         void playCurrent(generation);
       });
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if(data.fatal && !disposed && generation === playbackGeneration) {
-          console.error('Al Jazeera English live stream failed.', data);
+          console.error('Al Jazeera English live stream failed, falling back to YouTube.', data);
           ++playbackGeneration;
           clearPlaybackTimeout();
           destroyHls();
           setLoading(false);
-          setStatus('The live feed is unavailable here. Open Al Jazeera’s official live page.');
+          setFallbackError(true);
+          setStatus('Using YouTube embed for Al Jazeera English');
         }
       });
       hls.loadSource(LIVE_STREAM_URL);
@@ -673,42 +932,59 @@ function CinemaPage() {
     } catch(error) {
       if(disposed || generation !== playbackGeneration) return;
       clearPlaybackTimeout();
-      console.error('Could not initialize the live HLS stream.', error);
+      console.error('Could not initialize HLS, falling back to YouTube.', error);
       setLoading(false);
-      setStatus('The live player could not be initialized.');
+      setFallbackError(true);
+      setStatus('Using YouTube embed for Al Jazeera English');
     }
   };
 
-  const loadCatalog = async() => {
+  const loadCatalog = async(isAutomaticRetry = false) => {
+    if(!isAutomaticRetry) clearCatalogAutoRetry();
     catalogRequest?.abort();
     const request = new AbortController();
     catalogRequest = request;
     let timedOut = false;
+    let responseStatus: number | undefined;
     const requestTimeout = window.setTimeout(() => {
       timedOut = true;
       request.abort();
     }, 12_000);
+    setCatalogEndpointStatus('Catalog request in progress; no response yet.');
 
     try {
       const response = await fetch('/api/cinema-catalog', {
         headers: {Accept: 'application/json'},
         signal: request.signal
       });
+      responseStatus = response.status;
       if(!response.ok) {
+        setCatalogRequestOutcome(`HTTP ${response.status} response; catalog unavailable`);
         if(response.status !== 503) console.error('Cinema catalog request failed.', response.status);
         activateDemoFallback();
         return;
       }
 
-      const payload: unknown = await response.json();
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch{
+        setCatalogRequestOutcome(`HTTP ${response.status} response; invalid JSON`);
+        console.error('Cinema catalog response is not valid JSON.');
+        activateDemoFallback();
+        return;
+      }
       const result = getCatalogResponseResult(true, payload);
       if(result.kind === 'fallback') {
+        setCatalogRequestOutcome(`HTTP ${response.status} response; invalid catalog data`);
         console.error('Cinema catalog response has an invalid schema.');
         activateDemoFallback();
         return;
       }
 
       const wasFallback = fallbackActive() || items().some((item) => item.id === DEMO_CINEMA_ITEM.id);
+      setCatalogRequestOutcome(`HTTP ${response.status} response; ${result.items.length ?
+        `${result.items.length} catalog titles` : 'valid empty catalog'}`);
       if(wasFallback) restoreDemoMute();
       setFallbackActive(false);
       setFallbackError(false);
@@ -719,7 +995,7 @@ function CinemaPage() {
         'No licensed episodes are available in the catalog yet.');
       if(wasFallback && section() === 'cinema') {
         unavailableItems.clear();
-        if(result.items.length) {
+        if(result.items.length && !isAutomaticRetry) {
           void loadItem(0);
         } else {
           savePlaybackPosition();
@@ -733,12 +1009,29 @@ function CinemaPage() {
           setCurrentIndex(-1);
           setLoading(false);
           setPlaying(false);
+          setPlaybackBlocked(false);
         }
+        return;
+      }
+
+      if(shouldAutoLoadInitialCatalog(
+        initialCatalogSelectionPending,
+        section(),
+        currentIndex(),
+        result.items.length
+      )) {
+        initialCatalogSelectionPending = false;
+        unavailableItems.clear();
+        video.muted = true;
+        void loadItem(0);
       }
     } catch(error) {
       const result = getCatalogFailureResult(request.signal.aborted, timedOut);
       if(result.kind === 'aborted') return;
+      const failure = timedOut ? 'timeout' : 'network';
+      setCatalogRequestOutcome(timedOut ? 'No HTTP response; catalog request timed out' : 'No HTTP response; network request failed');
       console.error('Cinema catalog could not be loaded.', error);
+      if(shouldRetryCatalogAutomatically(isAutomaticRetry ? 1 : 0, failure)) scheduleCatalogAutoRetry();
       activateDemoFallback();
     } finally {
       window.clearTimeout(requestTimeout);
@@ -747,6 +1040,7 @@ function CinemaPage() {
   };
 
   const advanceQueue = () => {
+    initialCatalogSelectionPending = false;
     const nextIndex = getNextPlayableIndex(currentIndex(), items().length, unavailableItems);
     if(nextIndex < 0) {
       setPlaying(false);
@@ -757,11 +1051,13 @@ function CinemaPage() {
   };
 
   const selectItem = (index: number) => {
+    initialCatalogSelectionPending = false;
     unavailableItems.clear();
     void loadItem(index);
   };
 
   const selectSection = (nextSection: CinemaSection) => {
+    if(nextSection !== 'cinema') initialCatalogSelectionPending = false;
     if(nextSection === 'live') {
       void loadLiveStream();
       return;
@@ -785,12 +1081,24 @@ function CinemaPage() {
       else setSection('cinema');
       return;
     }
-    setSection('rewards');
-    if(video.currentSrc || video.src) {
-      setMiniPlayer(true);
-      setMiniPlayerHidden(false);
+    if(nextSection === 'rewards') {
+      setSection('rewards');
+      if(video.currentSrc || video.src) {
+        setMiniPlayer(true);
+        setMiniPlayerHidden(false);
+      }
+      setStatus('Earnings are unavailable until a verified rewards service is configured.');
+      return;
     }
-    setStatus('Earnings are unavailable until a verified rewards service is configured.');
+    if(nextSection === 'companion') {
+      setSection('companion');
+      setCompanionVisible(true);
+      if(video.currentSrc || video.src) {
+        setMiniPlayer(true);
+        setMiniPlayerHidden(false);
+      }
+      return;
+    }
   };
 
   onMount(() => {
@@ -798,23 +1106,111 @@ function CinemaPage() {
     const webApp = (window as Window & {
       Telegram?: {
         WebApp?: {
-          ready?: () => void,
-          expand?: () => void,
-          initDataUnsafe?: {
+          ready: () => void,
+          expand: () => void,
+          initData: string,
+          initDataUnsafe: {
             user?: {
-              first_name?: string
-            }
-          }
+              id: number,
+              first_name?: string,
+              last_name?: string,
+              username?: string
+            },
+            chat?: {
+              id: number,
+              type: string
+            },
+            hash: string
+          },
+          themeParams: {
+            bg_color?: string,
+            text_color?: string,
+            hint_color?: string,
+            link_color?: string,
+            button_color?: string,
+            button_text_color?: string,
+            secondary_bg_color?: string
+          },
+          isExpanded: boolean
         }
       }
     }).Telegram?.WebApp;
-    webApp?.ready?.();
-    webApp?.expand?.();
+
     if(webApp) {
-      setTelegramContext(webApp.initDataUnsafe?.user?.first_name ?
-        `Telegram preview · ${webApp.initDataUnsafe.user.first_name}` :
-        'Telegram WebApp preview');
+      webApp.ready();
+      webApp.expand();
+
+      const user = webApp.initDataUnsafe?.user;
+      if(user) {
+        const displayName = user.first_name || 'User';
+        const fullName = user.last_name ? `${displayName} ${user.last_name}` : displayName;
+        setTelegramContext(`Telegram · ${fullName}${user.username ? ` @${user.username}` : ''}`);
+      } else {
+        setTelegramContext('Telegram WebApp');
+      }
+
+      const applyTelegramTheme = () => {
+        const root = document.documentElement;
+        const theme = webApp.themeParams;
+        if(theme.bg_color) {
+          root.style.setProperty('--tg-theme-bg-color', theme.bg_color);
+          root.style.setProperty('--tg-theme-secondary-bg-color', theme.secondary_bg_color || theme.bg_color);
+        }
+        if(theme.text_color) {
+          root.style.setProperty('--tg-theme-text-color', theme.text_color);
+        }
+        if(theme.hint_color) {
+          root.style.setProperty('--tg-theme-hint-color', theme.hint_color);
+        }
+        if(theme.link_color) {
+          root.style.setProperty('--tg-theme-link-color', theme.link_color);
+        }
+        if(theme.button_color) {
+          root.style.setProperty('--tg-theme-button-color', theme.button_color);
+        }
+        if(theme.button_text_color) {
+          root.style.setProperty('--tg-theme-button-text-color', theme.button_text_color);
+        }
+      };
+
+      applyTelegramTheme();
+
+      const themeObserver = new MutationObserver(() => {
+        applyTelegramTheme();
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-tgme-w']
+      });
+
+      onCleanup(() => themeObserver.disconnect());
+    } else {
+      setTelegramContext('WEB APP');
     }
+    // Initialize monetization manager
+    monetizationManager = createCinemaMonetizationManager();
+    monetizationManager.setupTracking(video);
+    monetizationManager.onEarningsUpdate((amount) => {
+      setTotalEarnings(amount);
+      setEarningsDisplay(formatUsdtAmount(amount));
+    });
+    monetizationManager.onWithdrawalStatus((request) => {
+      if(request.status === 'pending' || request.status === 'processing') {
+        setPendingWithdrawals(prev => [...prev, request]);
+      } else if(request.status === 'completed' || request.status === 'failed') {
+        setPendingWithdrawals(prev => prev.filter(r => r !== request));
+        setWithdrawalHistory(prev => [...prev, request]);
+      }
+      if(request.status === 'completed') {
+        setWithdrawalStatus(`Withdrawal completed! TX: ${request.txHash?.slice(0, 16)}...`);
+        setWithdrawalError('');
+      } else if(request.status === 'failed') {
+        setWithdrawalError(`Withdrawal failed: ${request.error || 'Unknown error'}`);
+        setWithdrawalStatus('');
+      }
+    });
+    setMonetizationReady(true);
+    
     void initializeTonConnect();
     try {
       const savedKeys: unknown = JSON.parse(localStorage.getItem(DEMO_KEYS_STORAGE_KEY) || '{}');
@@ -822,6 +1218,7 @@ function CinemaPage() {
         const keys = savedKeys as Record<string, unknown>;
         if(typeof keys.gemini === 'string') setGeminiKey(keys.gemini);
         if(typeof keys.srey === 'string') setSreyKey(keys.srey);
+        setGeminiKeySaved(typeof keys.gemini === 'string' && Boolean(keys.gemini));
         setKeysSaved(Boolean(keys.gemini || keys.srey));
       }
       const lastCheckIn = localStorage.getItem(`${DEMO_CHECK_IN_STORAGE_KEY}-day`);
@@ -839,10 +1236,39 @@ function CinemaPage() {
       console.error('Could not load preview settings.', error);
       setKeySettingsMessage('Preview settings could not be loaded from this browser.');
     }
+    
+    // Initialize with full Merlin + Legend of the Seeker catalog immediately
+    // Don't wait for API - this is the primary content
+    const fullCatalog = getInitialCatalog();
+    setItems(fullCatalog);
+    setCatalogReady(true);
+    setStatus(`${fullCatalog.length} series ready: Merlin Seasons 1-5 & Legend of the Seeker Seasons 1-2.`);
+    
+    // Still try to load from API for any additional content
     void loadCatalog();
+    
+    // Initialize companion session
+    initializeCompanionSession();
+    
+    // Companion visibility/focus trigger
+    const handleCompanionTrigger = () => {
+      if(document.visibilityState === 'visible' && geminiKey().trim()) {
+        // Check if we should trigger companion check-in
+        // Only trigger if user has been away and returns
+        // We'll use a simple approach: trigger on first visibility change after being hidden
+        if(companionState() === 'idle' && !companionSessionActive()) {
+          startCompanionCheckIn();
+        }
+      }
+    };
+    
     window.addEventListener('resize', onWindowResize);
+    window.addEventListener('online', onBrowserOnline);
+    window.addEventListener('offline', onBrowserOffline);
     window.addEventListener('pagehide', savePlaybackPosition);
     document.addEventListener('visibilitychange', onDocumentVisibilityChange);
+    document.addEventListener('visibilitychange', handleCompanionTrigger);
+    window.addEventListener('focus', handleCompanionTrigger);
 
     onCleanup(() => {
       disposed = true;
@@ -855,13 +1281,35 @@ function CinemaPage() {
       video.removeAttribute('src');
       video.load();
       window.removeEventListener('resize', onWindowResize);
+      window.removeEventListener('online', onBrowserOnline);
+      window.removeEventListener('offline', onBrowserOffline);
       window.removeEventListener('pagehide', savePlaybackPosition);
       document.removeEventListener('visibilitychange', onDocumentVisibilityChange);
+      document.removeEventListener('visibilitychange', handleCompanionTrigger);
+      window.removeEventListener('focus', handleCompanionTrigger);
+      window.clearTimeout(catalogAutoRetryTimeout);
+      catalogAutoRetryPending = false;
       balanceRequest?.abort();
       balanceRequest = undefined;
       window.clearInterval(balanceRefreshInterval);
       window.clearInterval(heartbeatInterval);
       unsubscribeWalletStatus?.();
+      // Clean up watch time tracking
+      stopWatchTimeTracking();
+      // Clean up monetization
+      if(monetizationManager) {
+        monetizationManager.dispose();
+        monetizationManager = undefined;
+      }
+      // Clean up companion session
+      if(companionDispose) {
+        companionDispose();
+        companionDispose = null;
+      }
+      if(companionSession) {
+        companionSession.dispose();
+        companionSession = null;
+      }
     });
   });
 
@@ -898,6 +1346,26 @@ function CinemaPage() {
       }
     >
       <section class="cinema-content" aria-label="Urban Cinema">
+        <Show when={monetizationReady() && section() !== 'companion'}>
+          <div class="cinema-monetization-header">
+            <span class="cinema-earnings-badge" aria-live="polite">
+              Earnings: {earningsDisplay() || '$0.00 USDT'}
+            </span>
+            <Show when={totalEarnings() >= 1}>
+              <button
+                class="cinema-withdraw-button"
+                type="button"
+                aria-label="Withdraw earnings"
+                onClick={() => {
+                  setSection('rewards');
+                  window.history.pushState({}, '', '#rewards');
+                }}
+              >
+                Withdraw
+              </button>
+            </Show>
+          </div>
+        </Show>
         <div class="cinema-heading">
           <Switch>
             <Match when={section() === 'cinema'}>
@@ -931,6 +1399,14 @@ function CinemaPage() {
                 <p class="cinema-intro">Explore decorative gift concepts. No inventory or checkout is connected.</p>
               </div>
               <span class="cinema-rewards-status">NO PURCHASES</span>
+            </Match>
+            <Match when={section() === 'companion'}>
+              <div>
+                <p class="cinema-eyebrow">FRIENDLY CHECK-IN</p>
+                <h1>Companion</h1>
+                <p class="cinema-intro">A warm, caring friend checking in on your well-being.</p>
+              </div>
+              <span class="cinema-companion-status">{companionSessionActive() ? 'Active' : 'Ready'}</span>
             </Match>
           </Switch>
           <Show when={section() !== 'shop' || video?.currentSrc || video?.src}>
@@ -1000,28 +1476,36 @@ function CinemaPage() {
                 onVolumeChange={() => {
                   if(fallbackActive()) setDemoSoundEnabled(!video.muted);
                 }}
-                onPlay={() => {
+                onPlaying={() => {
                   setPlaying(true);
+                  setPlaybackBlocked(false);
                   setStatus('Now playing.');
                 }}
-                onPause={() => setPlaying(false)}
+                onPause={() => {
+                  setPlaying(false);
+                  if(status() === 'Now playing.') setStatus('Playback paused.');
+                }}
                 onTimeUpdate={savePlaybackPosition}
                 onLoadedMetadata={() => {
-                  if(section() === 'cinema') {
-                    restorePlaybackPosition();
-                    if(video.paused) void playCurrent(playbackGeneration);
-                  }
+                  if(section() === 'cinema') restorePlaybackPosition();
                 }}
                 onLoadedData={() => {
                   clearPlaybackTimeout();
                   setLoading(false);
-                  if(section() === 'cinema') {
+                  if(section() === 'cinema' && !playing() && !playbackBlocked()) {
                     setStatus(`Ready: ${items()[currentIndex()]?.title || 'your title'}.`);
                   }
                 }}
                 onEnded={() => {
                   savePlaybackPosition();
+                  stopWatchTimeTracking();
                   if(section() === 'cinema') advanceQueue();
+                }}
+                onPlay={() => {
+                  startWatchTimeTracking();
+                }}
+                onPause={() => {
+                  stopWatchTimeTracking();
                 }}
                 onError={(event) => {
                   const error = event.currentTarget.error;
@@ -1041,6 +1525,23 @@ function CinemaPage() {
                   setStatus('The live feed is unavailable in this browser or region.');
                 }}
               />
+              
+              {/* YouTube Embed for Al Jazeera Live Stream - Falls back when HLS fails */}
+              <Show when={section() === 'live' && fallbackError()}>
+                <div class="cinema-youtube-fallback">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={YOUTUBE_AJE_URL}
+                    title="Al Jazeera English Live Stream"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                </div>
+              </Show>
+              
               <Show when={loading()}>
                 <div class="cinema-loading" role="status">
                   {section() === 'live' ? 'Connecting to the official live feed…' : 'Preparing your stream…'}
@@ -1050,7 +1551,7 @@ function CinemaPage() {
                 <div class="cinema-player-empty">
                   <span class="cinema-empty-mark" aria-hidden="true">U</span>
                   <strong>Your next story starts here</strong>
-                  <span>Licensed titles will appear when the cinema catalog is configured.</span>
+                  <span>Merlin Seasons 1-5 & Legend of the Seeker Seasons 1-2</span>
                 </div>
               </Show>
             </div>
@@ -1061,6 +1562,10 @@ function CinemaPage() {
                     <p class="cinema-eyebrow">NOW SHOWING</p>
                     <h2>{items()[currentIndex()]?.title || 'Choose a title to begin'}</h2>
                     <p role={fallbackError() ? 'status' : undefined}>{status()}</p>
+                    <div class="cinema-network-status" aria-label="Connection advisory">
+                      <span>Browser connectivity: {browserOnline() ? 'online' : 'offline'} (advisory)</span>
+                      <span>Catalog endpoint: {catalogEndpointStatus()}</span>
+                    </div>
                     <Show when={fallbackActive()}>
                       <p class="cinema-demo-note">
                         Demo preview only — this MDN CC0 sample is not part of your licensed cinema catalog.
@@ -1141,9 +1646,9 @@ function CinemaPage() {
               <Show when={items().length} fallback={
                 <div class="cinema-queue-empty">
                   <p>Featured collections</p>
-                  <div>Merlin <span>Seasons 1–5 · source not configured</span></div>
-                  <div>Legend of the Seeker <span>Source not configured</span></div>
-                  <small>Episode streams must come from your licensed catalog.</small>
+                  <div>Merlin <span>Seasons 1–5</span></div>
+                  <div>Legend of the Seeker <span>Seasons 1–2</span></div>
+                  <small>Available now: 7 complete series</small>
                 </div>
               }>
                 <ol class="cinema-queue-list">
@@ -1170,6 +1675,22 @@ function CinemaPage() {
             </aside>
           </Show>
         </div>
+
+        <Show when={section() === 'cinema'}>
+          <GeminiCodingAssistant
+            apiKey={geminiKey()}
+            keySaved={geminiKeySaved()}
+            keyStatus={keySettingsMessage()}
+            onApiKeyInput={(value) => {
+              setGeminiKey(value);
+              setGeminiKeySaved(false);
+              setKeysSaved(Boolean(sreyKey().trim()));
+              setKeySettingsMessage('');
+            }}
+            onSaveKey={() => saveDemoKeys()}
+            onRemoveKey={removeGeminiKey}
+          />
+        </Show>
 
         <Show when={section() === 'shop'}>
           <section class="cinema-shop" aria-labelledby="sreyshop-title">
@@ -1282,10 +1803,111 @@ function CinemaPage() {
 
         <Show when={section() === 'rewards'}>
           <section class="cinema-rewards-card" aria-labelledby="rewards-title">
-            <span class="cinema-rewards-icon" aria-hidden="true">◇</span>
-            <h2 id="rewards-title">Verified earnings are not available yet</h2>
-            <p>Viewing time stored in this browser is not proof of a completed task, and it cannot authorize a blockchain payout. A verified account, persistent rewards ledger and payout service must be configured before earnings can be enabled.</p>
-            <a href="https://ton.org/wallets" target="_blank" rel="noopener noreferrer">Explore TON wallets <span aria-hidden="true">↗</span></a>
+            <Show when={monetizationReady()} fallback={
+              <>
+                <span class="cinema-rewards-icon" aria-hidden="true">◇</span>
+                <h2 id="rewards-title">Verified earnings are not available yet</h2>
+                <p>Viewing time stored in this browser is not proof of a completed task, and it cannot authorize a blockchain payout. A verified account, persistent rewards ledger and payout service must be configured before earnings can be enabled.</p>
+                <a href="https://ton.org/wallets" target="_blank" rel="noopener noreferrer">Explore TON wallets <span aria-hidden="true">↗</span></a>
+              </>
+            }>
+              <span class="cinema-rewards-icon" aria-hidden="true">◇</span>
+              <h2 id="rewards-title">Your Earnings</h2>
+              <div class="cinema-earnings-display">
+                <p class="cinema-earnings-total">Total: <strong>{earningsDisplay() || '$0.00 USDT'}</strong></p>
+                <p class="cinema-earnings-note">Earned from watching cinema and live streams</p>
+              </div>
+              
+              <Show when={tonWalletAddress() && tonWalletOnMainnet()}>
+                <section class="cinema-withdrawal-section" aria-labelledby="withdrawal-title">
+                  <div class="cinema-withdrawal-heading">
+                    <p class="cinema-eyebrow">TON WITHDRAWAL</p>
+                    <h3 id="withdrawal-title">Withdraw to Your Wallet</h3>
+                  </div>
+                  <p>Withdraw your accumulated USDT earnings directly to your connected TON wallet.</p>
+                  <p>Minimum withdrawal: $1.00 USDT | Fee: $0.10 USDT flat</p>
+                  
+                  <form class="cinema-withdrawal-form" onSubmit={(e) => {
+                    e.preventDefault();
+                    void requestWithdrawal();
+                  }}>
+                    <label>
+                      Withdrawal Amount (USDT)
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        max={totalEarnings()}
+                        value={withdrawalAmount()}
+                        disabled={!monetizationManager?.canWithdraw()}
+                        onInput={(event) => setWithdrawalAmount(event.currentTarget.value)}
+                        placeholder={`Min: $1.00, Available: $${totalEarnings().toFixed(2)}`}
+                      />
+                    </label>
+                    <button
+                      class="cinema-control"
+                      type="submit"
+                      disabled={!monetizationManager?.canWithdraw() || !withdrawalAmount() || parseFloat(withdrawalAmount()) < 1}
+                    >
+                      Request Withdrawal
+                    </button>
+                  </form>
+                  <Show when={withdrawalStatus()}>
+                    <p class="cinema-withdrawal-status" role="status">{withdrawalStatus()}</p>
+                  </Show>
+                  <Show when={withdrawalError()}>
+                    <p class="cinema-withdrawal-error" role="alert">{withdrawalError()}</p>
+                  </Show>
+                </section>
+                
+                <section class="cinema-transaction-history" aria-labelledby="history-title">
+                  <h4 id="history-title">Transaction History</h4>
+                  <Show when={withdrawalHistory().length > 0} fallback={
+                    <p>No withdrawals yet. Start watching to earn!</p>
+                  }>
+                    <ul class="cinema-transaction-list">
+                      <For each={withdrawalHistory()}>
+                        {(request) => (
+                          <li class={`cinema-transaction-item ${request.status}`}>
+                            <div>
+                              <strong>${request.amount.toFixed(2)} USDT</strong>
+                              <span>to {request.targetAddress.slice(0, 10)}...</span>
+                            </div>
+                            <div>
+                              <span class={`cinema-transaction-status ${request.status}`}>
+                                {request.status.toUpperCase()}
+                              </span>
+                              <Show when={request.txHash}>
+                                <small>TX: {request.txHash.slice(0, 16)}...</small>
+                              </Show>
+                              <small>{new Date(request.timestamp).toLocaleString()}</small>
+                            </div>
+                          </li>
+                        )}
+                      </For>
+                    </ul>
+                  </Show>
+                </section>
+                
+                <p class="cinema-rewards-note">
+                  <strong>Note:</strong> This is a local earnings tracker. In production, earnings would be verified server-side and withdrawals would be processed through a smart contract on the TON blockchain.
+                </p>
+              </Show>
+              
+              <Show when={!tonWalletAddress() || !tonWalletOnMainnet()}>
+                <p class="cinema-rewards-warning">
+                  Connect your TON wallet (mainnet) to enable withdrawals.
+                </p>
+                <button class="cinema-control" type="button" onClick={() => void connectTonWallet()}>
+                  Connect TON Wallet
+                </button>
+              </Show>
+              
+              <a href="https://ton.org/wallets" target="_blank" rel="noopener noreferrer">
+                Explore TON wallets <span aria-hidden="true">↗</span>
+              </a>
+            </Show>
+            
             <section class="cinema-preview-tools" aria-labelledby="preview-tools-title">
               <div class="cinema-preview-heading">
                 <div>
@@ -1300,21 +1922,7 @@ function CinemaPage() {
 
               <form class="cinema-preview-form" onSubmit={saveDemoKeys}>
                 <h4>API key settings</h4>
-                <p>Keys are saved as plain browser storage on this device. They are not encrypted, sent to a provider, or used by this preview.</p>
-                <label>
-                  Gemini API key
-                  <input
-                    type="password"
-                    name="gemini-key"
-                    autoComplete="off"
-                    value={geminiKey()}
-                    onInput={(event) => {
-                      setGeminiKey(event.currentTarget.value);
-                      setKeysSaved(false);
-                      setKeySettingsMessage('');
-                    }}
-                  />
-                </label>
+                <p>The Gemini key is saved in plain browser localStorage and sent directly to Google only when you use the Cinema coding assistant. The Srey key remains local and is not connected to a provider.</p>
                 <label>
                   Srey API key
                   <input
@@ -1335,7 +1943,7 @@ function CinemaPage() {
                 </div>
                 <p class="cinema-preview-status" role="status">
                   {keySettingsMessage() || (keysSaved() ?
-                    'Preview keys are saved locally; no provider is connected.' :
+                    'Preview settings are saved locally.' :
                     'No saved preview keys. Unsaved input stays in this session.')}
                 </p>
               </form>
@@ -1545,6 +2153,112 @@ function CinemaPage() {
           </section>
         </Show>
       </section>
+      
+      {/* Companion Check-in Overlay */}
+      <Show when={companionVisible() && !companionMinimized()}>
+        <section
+          class="cinema-companion-overlay"
+          aria-label="Companion check-in"
+          ref={companionContainer}
+        >
+          <div class="cinema-companion-header">
+            <h2>Friend Check-In</h2>
+            <button
+              class="cinema-companion-minimize"
+              type="button"
+              aria-label="Minimize companion"
+              onClick={minimizeCompanion}
+            >
+              −
+            </button>
+          </div>
+          <div class="cinema-companion-messages" aria-live="polite">
+            <For each={companionMessages()}>
+              {(message) => (
+                <div
+                  class={`cinema-companion-message ${message.role}`}
+                  classList={{
+                    'cinema-companion-message-user': message.role === 'user',
+                    'cinema-companion-message-companion': message.role === 'model'
+                  }}
+                >
+                  <strong>{message.role === 'user' ? 'You' : 'Friend'}</strong>
+                  <p>{message.text}</p>
+                  <span class="cinema-companion-timestamp">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
+            </For>
+            <Show when={companionMessages().length === 0 && !companionSessionActive()}>
+              <p class="cinema-companion-welcome">
+                A warm, caring friend would like to check in on you. 
+                This is a 1-3 minute conversation about your well-being.
+              </p>
+            </Show>
+          </div>
+          <Show when={companionState() !== 'goodbye' && companionState() !== 'complete'}>
+            <form class="cinema-companion-form" onSubmit={handleCompanionUserMessage}>
+              <label for="companion-input">Your response</label>
+              <input
+                id="companion-input"
+                type="text"
+                value={companionInput()}
+                disabled={!companionSessionActive()}
+                onInput={(event) => { setCompanionInput(event.currentTarget.value); }}
+                placeholder="Type your response..."
+                autoComplete="off"
+              />
+              <button
+                class="cinema-control"
+                type="submit"
+                disabled={!companionInput().trim() || !companionSessionActive()}
+              >
+                Send
+              </button>
+            </form>
+          </Show>
+          <div class="cinema-companion-footer">
+            <button
+              class="cinema-control cinema-control-subtle"
+              type="button"
+              onClick={endCompanionSession}
+            >
+              End Check-In
+            </button>
+            <span class="cinema-companion-state">
+              {companionSessionActive() ? 'Active' : 'Waiting'}
+            </span>
+          </div>
+        </section>
+      </Show>
+      
+      {/* Companion Minimized Indicator */}
+      <Show when={companionVisible() && companionMinimized()}>
+        <button
+          class="cinema-companion-indicator"
+          type="button"
+          aria-label="Restore companion check-in"
+          onClick={restoreCompanion}
+          title="Friend check-in is minimized"
+        >
+          <span aria-hidden="true">💬</span>
+          <span class="cinema-companion-badge">1</span>
+        </button>
+      </Show>
+      
+      {/* Quick Access Button for Companion */}
+      <Show when={geminiKey().trim() && !companionVisible()}>
+        <button
+          class="cinema-floating-companion"
+          type="button"
+          aria-label="Start friend check-in"
+          onClick={startCompanionCheckIn}
+          title="Start a friendly check-in"
+        >
+          <span aria-hidden="true">💬</span>
+        </button>
+      </Show>
     </EmbeddedBrowserEngine>
   );
 }

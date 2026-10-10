@@ -6,7 +6,8 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "start": "vite",
-    "start:codespaces": "TWEB_PREVIEW=1 vite dev --host 0.0.0.0 --port 8080 --strictPort",
+    "start:codespaces": "TWEB_PREVIEW=1 bash scripts/start-vite-preview.sh 8080",
+    "start:cinema-preview": "TWEB_PREVIEW=1 bash scripts/start-vite-preview.sh 4173",
     "start-in-docker": "vite --host",
     "serve": "pnpm run build && node server.js --dist",
     "build": "vite build",

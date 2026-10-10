@@ -1,4 +1,4 @@
-import {DEMO_CINEMA_ITEM, getCatalogFailureResult, getCatalogResponseResult, getDemoRetryIndex} from '@/cinemaCatalog';
+import {DEMO_CINEMA_ITEM, getCatalogFailureResult, getCatalogResponseResult, getDemoRetryIndex, shouldAutoLoadInitialCatalog, shouldRetryCatalogAutomatically} from '@/cinemaCatalog';
 
 describe('cinema catalog fallback', () => {
   it('keeps a valid configured catalog, including an empty one', () => {
@@ -33,5 +33,20 @@ describe('cinema catalog fallback', () => {
     expect(getDemoRetryIndex(true, false, 0)).toBe(-1);
     expect(getDemoRetryIndex(false, true, 0)).toBe(-1);
     expect(getDemoRetryIndex(true, true, -1)).toBe(-1);
+  });
+
+  it('auto-loads only the first item while initial cinema selection is still untouched', () => {
+    expect(shouldAutoLoadInitialCatalog(true, 'cinema', -1, 2)).toBe(true);
+    expect(shouldAutoLoadInitialCatalog(true, 'live', -1, 2)).toBe(false);
+    expect(shouldAutoLoadInitialCatalog(true, 'cinema', 0, 2)).toBe(false);
+    expect(shouldAutoLoadInitialCatalog(false, 'cinema', -1, 2)).toBe(false);
+    expect(shouldAutoLoadInitialCatalog(true, 'cinema', -1, 0)).toBe(false);
+  });
+
+  it('permits one delayed catalog retry only for a network failure or timeout', () => {
+    expect(shouldRetryCatalogAutomatically(0, 'network')).toBe(true);
+    expect(shouldRetryCatalogAutomatically(0, 'timeout')).toBe(true);
+    expect(shouldRetryCatalogAutomatically(0, 'response')).toBe(false);
+    expect(shouldRetryCatalogAutomatically(1, 'network')).toBe(false);
   });
 });

@@ -6,6 +6,15 @@
   color: #f4f1e8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+
+  /* Telegram Mini App theme variables - applied dynamically */
+  --tgme-bg-color: var(--tg-theme-bg-color, #090a0c);
+  --tgme-secondary-bg-color: var(--tg-theme-secondary-bg-color, #1a1b1e);
+  --tgme-text-color: var(--tg-theme-text-color, #f4f1e8);
+  --tgme-hint-color: var(--tg-theme-hint-color, #8a8a8a);
+  --tgme-link-color: var(--tg-theme-link-color, #d2ba8c);
+  --tgme-button-color: var(--tg-theme-button-color, #d2ba8c);
+  --tgme-button-text-color: var(--tg-theme-button-text-color, #090a0c);
 }
 
 html,
@@ -975,9 +984,209 @@ a {
 .cinema-brand:focus-visible,
 .cinema-live-details > a:focus-visible,
 .cinema-rewards-card > a:focus-visible,
-.cinema-preview-tools input:focus-visible {
+.cinema-preview-tools input:focus-visible,
+.cinema-gemini input:focus-visible,
+.cinema-gemini textarea:focus-visible,
+.cinema-gemini-toggle:focus-visible {
   outline: 2px solid #f0d28f;
   outline-offset: 3px;
+}
+
+.cinema-network-status {
+  display: grid;
+  gap: 4px;
+  max-width: 620px;
+  margin-top: 10px;
+  color: #b9b3a6;
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cinema-gemini {
+  margin-top: clamp(26px, 4vw, 48px);
+  overflow: hidden;
+  border: 1px solid rgb(203 170 99 / 30%);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 100% 0, rgb(203 170 99 / 10%), transparent 42%),
+    linear-gradient(145deg, rgb(22 21 18 / 96%), rgb(9 10 12 / 96%));
+  box-shadow: 0 18px 48px rgb(0 0 0 / 22%);
+}
+
+.cinema-gemini-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.cinema-gemini-heading .cinema-eyebrow {
+  margin-bottom: 7px;
+}
+
+.cinema-gemini-heading h2 {
+  margin: 0;
+  color: #eee8d8;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.cinema-gemini-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.cinema-gemini-toggle > span {
+  color: #d2ba8c;
+  font-family: Inter, sans-serif;
+  font-size: 18px;
+}
+
+.cinema-gemini-network {
+  color: #aaa69c;
+  font-size: 10px;
+  text-align: right;
+}
+
+.cinema-gemini-body {
+  display: grid;
+  gap: 16px;
+  padding: 0 22px 22px;
+}
+
+.cinema-gemini-body[hidden] {
+  display: none;
+}
+
+.cinema-gemini-disclosure,
+.cinema-gemini-key-status,
+.cinema-gemini-status,
+.cinema-gemini-error,
+.cinema-gemini-empty {
+  margin: 0;
+  color: #b9b3a6;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.cinema-gemini-key {
+  display: grid;
+  gap: 9px;
+  padding: 15px;
+  border: 1px solid rgb(233 224 203 / 12%);
+  border-radius: 9px;
+  background: rgb(5 6 7 / 38%);
+}
+
+.cinema-gemini-key > label,
+.cinema-gemini-form > label {
+  color: #e5ddca;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cinema-gemini input,
+.cinema-gemini textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 11px;
+  border: 1px solid rgb(233 224 203 / 20%);
+  border-radius: 7px;
+  background: #090a0c;
+  color: #f4f1e8;
+  font: inherit;
+  font-size: 12px;
+}
+
+.cinema-gemini input:focus-visible,
+.cinema-gemini textarea:focus-visible {
+  border-color: #c2a267;
+}
+
+.cinema-gemini textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.cinema-gemini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cinema-gemini-actions .cinema-control {
+  min-height: 38px;
+  font-size: 11px;
+}
+
+.cinema-gemini-transcript {
+  max-height: 390px;
+  overflow: auto;
+  border: 1px solid rgb(233 224 203 / 12%);
+  border-radius: 9px;
+  background: rgb(5 6 7 / 45%);
+}
+
+.cinema-gemini-transcript ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+  list-style: none;
+}
+
+.cinema-gemini-empty {
+  padding: 16px;
+}
+
+.cinema-gemini-message {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid rgb(233 224 203 / 10%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 2%);
+}
+
+.cinema-gemini-message.is-user {
+  border-color: rgb(203 170 99 / 22%);
+  background: rgb(203 170 99 / 6%);
+}
+
+.cinema-gemini-message > strong {
+  color: #d2ba8c;
+  font-size: 10px;
+}
+
+.cinema-gemini-message > pre {
+  margin: 0;
+  color: #e6e1d6;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.cinema-gemini-form {
+  display: grid;
+  gap: 9px;
+}
+
+.cinema-gemini-error {
+  color: #e6ada3;
 }
 
 .cinema-preview-tools {
@@ -1226,6 +1435,14 @@ a {
   .cinema-queue-list {
     max-height: 36dvh;
   }
+
+  .cinema-gemini-heading {
+    align-items: flex-start;
+  }
+
+  .cinema-gemini-network {
+    max-width: 165px;
+  }
 }
 
 @media(max-width: 560px) {
@@ -1286,6 +1503,25 @@ a {
 
   .cinema-nav-item {
     min-width: 0;
+  }
+
+  .cinema-gemini-heading {
+    flex-direction: column;
+    gap: 8px;
+    padding: 17px;
+  }
+
+  .cinema-gemini-network {
+    max-width: none;
+    text-align: left;
+  }
+
+  .cinema-gemini-body {
+    padding: 0 17px 17px;
+  }
+
+  .cinema-gemini-key {
+    padding: 12px;
   }
 
   .cinema-preview-grid {
@@ -1383,3 +1619,565 @@ a {
     background-position: 50% 50%;
   }
 }
+
+/* ==================== COMPANION CHECK-IN STYLES ==================== */
+
+.cinema-companion-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  max-height: 60vh;
+  padding: 0;
+  background: var(--tgme-secondary-bg-color, #1a1b1e);
+  border: 1px solid var(--tgme-hint-color, #3a3a3a);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 8px rgba(0 0 0 / 40%),
+    0 10px 30px rgba(0 0 0 / 30%);
+  overflow: hidden;
+  animation: cinemaCompanionFadeIn 0.3s ease;
+}
+
+@keyframes cinemaCompanionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cinema-companion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: var(--tgme-bg-color, #090a0c);
+  border-bottom: 1px solid var(--tgme-hint-color, #3a3a3a);
+}
+
+.cinema-companion-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tgme-text-color, #f4f1e8);
+  letter-spacing: 0.5px;
+}
+
+.cinema-companion-minimize {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--tgme-hint-color, #8a8a8a);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: var(--tgme-text-color, #f4f1e8);
+    background: var(--tgme-hint-color, #3a3a3a);
+  }
+}
+
+.cinema-companion-messages {
+  flex: 1;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--tgme-secondary-bg-color, #1a1b1e);
+  min-height: 120px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cinema-companion-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 85%;
+
+  strong {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.7;
+  }
+
+  p {
+    margin: 0;
+    word-wrap: break-word;
+  }
+
+  .cinema-companion-timestamp {
+    font-size: 10px;
+    opacity: 0.5;
+    align-self: flex-end;
+  }
+}
+
+.cinema-companion-message-user {
+  align-self: flex-end;
+  background: var(--tgme-button-color, #d2ba8c);
+  color: var(--tgme-button-text-color, #090a0c);
+  border-bottom-right-radius: 0;
+}
+
+.cinema-companion-message-companion {
+  align-self: flex-start;
+  background: var(--tgme-bg-color, #090a0c);
+  border-bottom-left-radius: 0;
+}
+
+.cinema-companion-welcome {
+  margin: 0;
+  font-size: 13px;
+  color: var(--tgme-hint-color, #8a8a8a);
+  text-align: center;
+  padding: 20px 0;
+}
+
+.cinema-companion-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: var(--tgme-bg-color, #090a0c);
+  border-top: 1px solid var(--tgme-hint-color, #3a3a3a);
+
+  label {
+    display: none;
+  }
+
+  input {
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 14px;
+    background: var(--tgme-secondary-bg-color, #1a1b1e);
+    border: 1px solid var(--tgme-hint-color, #3a3a3a);
+    border-radius: 6px;
+    color: var(--tgme-text-color, #f4f1e8);
+
+    &::placeholder {
+      color: var(--tgme-hint-color, #6a6a6a);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--tgme-link-color, #d2ba8c);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  button {
+    align-self: flex-end;
+    min-width: 80px;
+  }
+}
+
+.cinema-companion-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background: var(--tgme-secondary-bg-color, #1a1b1e);
+  border-top: 1px solid var(--tgme-hint-color, #3a3a3a);
+  font-size: 11px;
+  color: var(--tgme-hint-color, #8a8a8a);
+
+  button {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
+
+.cinema-companion-state {
+  opacity: 0.6;
+}
+
+.cinema-companion-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  font-size: 24px;
+  background: var(--tgme-button-color, #d2ba8c);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow:
+    0 2px 8px rgba(0 0 0 / 40%),
+    0 4px 12px rgba(0 0 0 / 20%);
+  animation: cinemaCompanionPulse 2s ease-in-out infinite;
+}
+
+@keyframes cinemaCompanionPulse {
+  0%, 100% {
+    box-shadow:
+      0 2px 8px rgba(0 0 0 / 40%),
+      0 4px 12px rgba(0 0 0 / 20%);
+  }
+  50% {
+    box-shadow:
+      0 2px 8px rgba(0 0 0 / 40%),
+      0 4px 12px rgba(0 0 0 / 20%),
+      0 0 0 4px rgba(210 186 140 / 30%);
+  }
+}
+
+.cinema-companion-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  color: var(--tgme-button-text-color, #090a0c);
+  background: var(--tgme-bg-color, #090a0c);
+  border-radius: 9px;
+}
+
+.cinema-floating-companion {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  font-size: 28px;
+  background: var(--tgme-button-color, #d2ba8c);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow:
+    0 4px 12px rgba(0 0 0 / 40%),
+    0 8px 24px rgba(0 0 0 / 20%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  opacity: 0.9;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow:
+      0 6px 16px rgba(0 0 0 / 40%),
+      0 12px 32px rgba(0 0 0 / 20%);
+    opacity: 1;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* Companion in rewards section */
+.cinema-companion-status {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--tgme-secondary-bg-color, #1a1b1e);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+
+/* Responsive adjustments */
+@media(max-width: 600px) {
+  .cinema-companion-overlay {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    max-width: none;
+  }
+
+  .cinema-companion-messages {
+    max-height: 300px;
+  }
+
+  .cinema-floating-companion,
+  .cinema-companion-indicator {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 24px;
+  }
+
+  /* Monetization UI Styles */
+  .cinema-monetization-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 10px;
+    padding: 8px 12px;
+    border: 1px solid rgb(230 218 187 / 15%);
+    border-radius: 8px;
+    background: rgb(9 10 12 / 80%);
+    backdrop-filter: blur(10px);
+  }
+
+  .cinema-earnings-badge {
+    color: #d2ba8c;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .cinema-withdraw-button {
+    min-height: 28px;
+    padding: 0 12px;
+    border: 1px solid #d2ba8c;
+    border-radius: 6px;
+    background: rgba(210, 186, 140, 0.15);
+    color: #d2ba8c;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .cinema-withdraw-button:hover:not(:disabled) {
+    background: rgba(210, 186, 140, 0.25);
+  }
+
+  .cinema-earnings-display {
+    text-align: center;
+    margin: 20px 0;
+  }
+
+  .cinema-earnings-total {
+    font-size: 28px;
+    font-weight: 600;
+    color: #d2ba8c;
+  }
+
+  .cinema-earnings-total strong {
+    font-size: 32px;
+    font-weight: 700;
+  }
+
+  .cinema-earnings-note {
+    color: #8a8a8a;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .cinema-withdrawal-section {
+    margin: 24px 0;
+    padding: 20px;
+    border: 1px solid rgb(230 218 187 / 15%);
+    border-radius: 12px;
+    background: rgb(9 10 12 / 40%);
+  }
+
+  .cinema-withdrawal-heading {
+    margin-bottom: 12px;
+  }
+
+  .cinema-withdrawal-heading .cinema-eyebrow {
+    color: #d2ba8c;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .cinema-withdrawal-heading h3 {
+    margin: 4px 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .cinema-withdrawal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 16px 0;
+  }
+
+  .cinema-withdrawal-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .cinema-withdrawal-form input {
+    padding: 12px 14px;
+    border: 1px solid rgb(230 218 187 / 20%);
+    border-radius: 8px;
+    background: rgb(9 10 12 / 60%);
+    color: #f4f1e8;
+    font: inherit;
+    font-size: 15px;
+  }
+
+  .cinema-withdrawal-form input:focus {
+    outline: none;
+    border-color: #d2ba8c;
+  }
+
+  .cinema-withdrawal-form input::placeholder {
+    color: #8a8a8a;
+  }
+
+  .cinema-withdrawal-form input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .cinema-withdrawal-status {
+    color: #4ade80;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+
+  .cinema-withdrawal-error {
+    color: #f87171;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+
+  .cinema-transaction-history {
+    margin: 20px 0;
+  }
+
+  .cinema-transaction-history h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .cinema-transaction-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cinema-transaction-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgb(9 10 12 / 30%);
+    border: 1px solid rgb(230 218 187 / 10%);
+  }
+
+  .cinema-transaction-item.completed {
+    border-color: rgb(74 222 128 / 20%);
+  }
+
+  .cinema-transaction-item.failed {
+    border-color: rgb(248 113 113 / 20%);
+  }
+
+  .cinema-transaction-item > div:first-child {
+    display: flex;
+    gap: 8px;
+    font-size: 14px;
+  }
+
+  .cinema-transaction-item > div:first-child strong {
+    color: #d2ba8c;
+  }
+
+  .cinema-transaction-item > div:last-child {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    color: #8a8a8a;
+  }
+
+  .cinema-transaction-status {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .cinema-transaction-status.completed {
+    background: rgb(74 222 128 / 15%);
+    color: #4ade80;
+  }
+
+  .cinema-transaction-status.failed {
+    background: rgb(248 113 113 / 15%);
+    color: #f87171;
+  }
+
+  .cinema-rewards-note {
+    font-size: 12px;
+    color: #8a8a8a;
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgb(9 10 12 / 30%);
+  }
+
+  .cinema-rewards-warning {
+    color: #fbbf24;
+    font-size: 13px;
+    margin: 16px 0;
+    text-align: center;
+  }
+
+  .cinema-youtube-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+  }
+
+  .cinema-youtube-fallback iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+  }
+}
+

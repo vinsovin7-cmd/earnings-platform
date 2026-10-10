@@ -31,6 +31,21 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + `/${indexFolderName}/index.html`);
 });
 
+// Serve cinema.html directly for /cinema or /cinema.html
+app.get(['/cinema', '/cinema.html'], (req, res) => {
+  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+});
+
+// Handle hash-based routing for cinema - redirect to clean URL
+app.get(/^\/?(?:#\/)?cinema(?:\/|\.html)?$/, (req, res) => {
+  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+});
+
+// Handle path-based routing for cinema sections
+app.get('/cinema/:section?', (req, res) => {
+  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+});
+
 const server = useHttp ? http : https;
 
 const options = {};
