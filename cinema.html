@@ -12,5 +12,24 @@
   </head>
   <body>
     <div id="cinema-root"></div>
+    <script>
+      // Telegram WebApp initialization for Cinema
+      if (window.Telegram && window.Telegram.WebApp) {
+        const webApp = window.Telegram.WebApp;
+        webApp.ready();
+        webApp.expand();
+        
+        // Handle back button for cinema
+        webApp.BackButton.onClick(() => {
+          window.history.back();
+        });
+        
+        // Extract initData
+        if (webApp.initData && webApp.initDataUnsafe) {
+          window.tgInitData = webApp.initDataUnsafe;
+          localStorage.setItem('tg_init_data', JSON.stringify(webApp.initDataUnsafe));
+        }
+      }
+    </script>
   </body>
 </html>
