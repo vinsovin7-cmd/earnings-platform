@@ -113,8 +113,21 @@
       </div>
     </div>
     <div id="stories-viewer"></div>
+    <!-- Electron update indicator container -->
+    <div id="electron-update-indicator-container"></div>
     <script>
       if(location.hash === '#cinema') location.replace('/cinema');
+      // Load Electron update indicator if running in Electron
+      if(typeof window !== 'undefined' && window.electronAPI) {
+        import('solid-js/web').then(({render}) => {
+          import('@components/electronUpdateIndicator').then(({default: ElectronUpdateIndicator}) => {
+            const container = document.getElementById('electron-update-indicator-container');
+            if(container) {
+              render(() => ElectronUpdateIndicator(), container);
+            }
+          });
+        });
+      }
     </script>
     <script src="src/index.ts" type="module"></script>
   </body>

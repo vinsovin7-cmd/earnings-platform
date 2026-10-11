@@ -39,3 +39,7 @@ ignore
 miniapp/dist
 miniapp/.vercel
 .vercel
+
+# Electron build output
+dist-electron/
+release/

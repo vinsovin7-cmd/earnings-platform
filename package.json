@@ -1,8 +1,8 @@
 {
   "name": "tweb",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Telegram Web K - Desktop Application",
+  "main": "dist-electron/main.js",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "start": "vite",
@@ -38,7 +38,19 @@
     "build:solid": "node ./src/scripts/build_solid.js",
     "format-lang": "node ./src/scripts/format_lang.js",
     "lottie-to-svg": "node ./src/scripts/lottie_to_svg.js",
-    "generate-scss-types": "node scss-types.js"
+    "generate-scss-types": "node scss-types.js",
+    "electron:dev": "concurrently -k -p '[{name}]' -c yellow,blue 'pnpm run start' 'wait-on http://localhost:8080 && cross-env IS_DEV=true NODE_ENV=development electron dist-electron/main.js'",
+    "electron:dev:cinema": "concurrently -k -p '[{name}]' -c yellow,blue 'pnpm run start:cinema-preview' 'wait-on http://localhost:4173 && cross-env IS_DEV=true NODE_ENV=development ENTRY_POINT=cinema.html electron dist-electron/main.js'",
+    "electron:build": "pnpm run build && pnpm run build:electron && electron-builder build --windows --x64 --nsis --one-click --per-machine",
+    "electron:build:win": "pnpm run build && pnpm run build:electron && electron-builder build --windows --x64",
+    "electron:build:mac": "pnpm run build && pnpm run build:electron && electron-builder build --mac --x64",
+    "electron:build:linux": "pnpm run build && pnpm run build:electron && electron-builder build --linux --x64",
+    "electron:build:all": "pnpm run build && pnpm run build:electron && electron-builder build --windows --mac --linux",
+    "electron:build:dir": "pnpm run build && pnpm run build:electron",
+    "build:electron": "tsx scripts/build-electron.ts",
+    "electron:package": "pnpm run build && pnpm run build:electron && electron-builder build --windows --x64 --dir",
+    "electron:start": "cross-env IS_DEV=true NODE_ENV=development electron dist-electron/main.js",
+    "electron:start:cinema": "cross-env IS_DEV=true NODE_ENV=development ENTRY_POINT=cinema.html electron dist-electron/main.js"
   },
   "author": "",
   "license": "GPL-3.0-only",
@@ -68,14 +80,20 @@
     "@types/ws": "^8.18.1",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@types/node": "^22.9.0",
     "aes-js": "^3.1.2",
     "autoprefixer": "^10.5.4",
     "axe-core": "^4.11.4",
     "big-integer": "^1.6.52",
     "browserslist": "^4.28.7",
     "compression": "^1.8.1",
+    "concurrently": "^9.2.5",
     "csstype": "^3.2.3",
+    "electron": "^32.3.3",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.8.9",
     "esbuild": "0.27.4",
+    "cross-env": "^7.0.3",
     "express": "^5.2.1",
     "fake-indexeddb": "^6.2.5",
     "fast-png": "^8.0.0",
@@ -96,15 +114,87 @@
     "qr-code-styling": "^1.9.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "sass": "^1.101.3",
+    "tsx": "^4.19.2",
     "tinyld": "^1.3.4",
     "typed-scss-modules": "8.1.1",
     "vite": "^8.2.1",
     "vite-plugin-handlebars": "^2.0.3",
     "vite-plugin-solid": "^2.11.13",
     "vitest": "^4.1.10",
+    "wait-on": "^8.0.5",
     "ws": "^8.21.1"
   },
   "packageManager": "pnpm@11.16.0",
+  "build": {
+    "appId": "com.tweb.desktop",
+    "productName": "Telegram Web K",
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "dist-electron/**/*",
+      "assets/**/*",
+      "index.html",
+      "cinema.html",
+      "rewards-preview.html",
+      "!**/node_modules/**",
+      "!**/.git/**",
+      "!**/.pnpm-store/**"
+    ],
+    "directories": {
+      "buildResources": "public",
+      "output": "release"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "public/assets/img/android-chrome-256x256.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "public/assets/img/favicon.ico",
+      "category": "public.app-category.social-networking",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "linux": {
+      "target": ["AppImage", "deb", "snap"],
+      "icon": "public/assets/img/favicon.ico",
+      "category": "Network;InstantMessaging;Chat;"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "public/assets/img/favicon.ico",
+      "uninstallerIcon": "public/assets/img/favicon_unread.ico",
+      "installerHeaderIcon": "public/assets/img/favicon.ico",
+      "license": "LICENSE",
+      "language": 1033
+    },
+    "portable": {
+      "splashImage": "public/assets/img/android-chrome-192x192.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "morethanwords",
+        "repo": "tweb",
+        "channel": "latest"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "public/assets/",
+        "to": "assets/"
+      },
+      {
+        "from": "assets/",
+        "to": "app-assets/"
+      }
+    ],
+    "extends": null
+  },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
