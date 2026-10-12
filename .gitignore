@@ -43,3 +43,8 @@ miniapp/.vercel
 # Electron build output
 dist-electron/
 release/
+
+venv/
+node_modules/
+dist/
+.env
