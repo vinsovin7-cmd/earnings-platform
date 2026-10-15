@@ -1028,7 +1028,7 @@ async def main():
     global BOT_USERNAME
     if not BOT_USERNAME:
         try:
-            me = await bot.get_me()
+            me = await asyncio.wait_for(bot.get_me(), timeout=5)
             BOT_USERNAME = me.username or ""
             print(f"Bot username resolved: @{BOT_USERNAME}")
         except Exception as e:
