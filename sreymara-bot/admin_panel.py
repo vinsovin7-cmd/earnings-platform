@@ -1,5 +1,29 @@
+import os
+import json
 from aiohttp import web
 import database as db
+import webapp_auth
+
+# Bot token for verifying Mini App initData (server-side trust boundary).
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+
+# Async bot sender injected by bot.py so the admin panel can deliver broadcasts
+# and payout notifications through the live Telegram bot instance.
+BOT_SENDER = None  # callable: async def send(user_id: int, text: str) -> bool
+
+def set_bot_sender(sender):
+    """Register an async coroutine used to DM users (broadcast / payout alerts)."""
+    global BOT_SENDER
+    BOT_SENDER = sender
+
+# Async AI responder injected by bot.py (wraps the Gemini engine) so the Mini App
+# VIP lounge chat (Srey AI) shares the exact same backoff/fallback logic.
+AI_RESPONDER = None  # callable: async def ask(prompt: str) -> str
+
+def set_ai_responder(responder):
+    """Register an async coroutine used to answer Srey AI prompts from the Mini App."""
+    global AI_RESPONDER
+    AI_RESPONDER = responder
 
 HTML_DASHBOARD = """<!DOCTYPE html>
 <html lang="en">
@@ -70,6 +94,22 @@ HTML_DASHBOARD = """<!DOCTYPE html>
             <h3>Platform Gift Volume</h3>
             <div id="mRev" class="metric-value" style="color:#10b981;">0 TRX</div>
         </div>
+        <div class="metric-card">
+            <h3>Registrations (24h)</h3>
+            <div id="mReg24" class="metric-value">0</div>
+        </div>
+        <div class="metric-card">
+            <h3>Total TRX Distributed</h3>
+            <div id="mTrxDist" class="metric-value gold-val">0 TRX</div>
+        </div>
+        <div class="metric-card">
+            <h3>Active Streamers</h3>
+            <div id="mStreamers" class="metric-value" style="color:#38bdf8;">0</div>
+        </div>
+        <div class="metric-card">
+            <h3>Pending Payouts</h3>
+            <div id="mPending" class="metric-value danger-val">0</div>
+        </div>
     </div>
 
     <div class="main-grid">
@@ -94,6 +134,35 @@ HTML_DASHBOARD = """<!DOCTYPE html>
         </table>
     </div>
 
+    <div class="card">
+        <h2>💸 Pending Payout Queue (TRC-20)</h2>
+        <div id="payoutsContainer">Loading payouts...</div>
+    </div>
+
+    <div class="card" style="border-color: rgba(245,158,11,0.4);">
+        <h2>👑 Platform Treasury (70% Vault)</h2>
+        <div class="metrics-grid" style="margin-bottom:14px;">
+            <div class="metric-card"><h3>Gross Ecosystem Volume (100%)</h3><div id="tGross" class="metric-value">0.0000 TRX</div></div>
+            <div class="metric-card"><h3>Platform Net Profit (70%)</h3><div id="tProfit" class="metric-value gold-val">0.0000 TRX</div></div>
+            <div class="metric-card"><h3>Available for Cashout</h3><div id="tAvailable" class="metric-value" style="color:#10b981;">0.0000 TRX</div></div>
+            <div class="metric-card"><h3>User Rewards Distributed (30%)</h3><div id="tUserPayouts" class="metric-value" style="color:#38bdf8;">0.0000 TRX</div></div>
+            <div class="metric-card"><h3>Admin Withdrawn to Date</h3><div id="tWithdrawn" class="metric-value danger-val">0.0000 TRX</div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="cashoutAmount" type="number" step="0.000001" min="0" placeholder="Amount TRX" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(10,15,26,0.8);color:#f8fafc;width:150px;" />
+            <input id="cashoutWallet" type="text" placeholder="TRC-20 destination (or saved)" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(10,15,26,0.8);color:#f8fafc;flex:1;min-width:220px;" />
+            <button class="btn-vip" style="margin-left:0;" onclick="adminCashout()">🏦 Withdraw Admin Treasury</button>
+        </div>
+        <div id="adminWithdrawals" style="margin-top:12px;font-size:12px;color:#94a3b8;"></div>
+    </div>
+
+    <div class="card">
+        <h2>📢 Global Broadcast</h2>
+        <p style="font-size:13px;color:#94a3b8;margin-bottom:10px;">Send an announcement to every registered user via the bot.</p>
+        <textarea id="broadcastText" rows="3" style="width:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(10,15,26,0.8);color:#f8fafc;padding:10px;font-size:13px;" placeholder="Type your announcement..."></textarea>
+        <div style="margin-top:10px;"><button class="btn-vip" style="margin-left:0;" onclick="sendBroadcast()">🚀 Send Broadcast</button></div>
+    </div>
+
     <script>
         let lastFlaggedCount = 0;
         const alertTone = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -108,6 +177,56 @@ HTML_DASHBOARD = """<!DOCTYPE html>
                 document.getElementById('mRooms').innerText = data.metrics.active_pairs;
                 document.getElementById('mLeaks').innerText = data.metrics.flagged_leaks;
                 document.getElementById('mRev').innerText = data.metrics.total_revenue + ' TRX';
+
+                // Crypto / earnings metrics (schema upgrade)
+                const cm = data.crypto || {};
+                document.getElementById('mReg24').innerText = cm.registrations_24h ?? 0;
+                document.getElementById('mTrxDist').innerText = (cm.total_trx_distributed ?? 0).toFixed(4) + ' TRX';
+                document.getElementById('mStreamers').innerText = cm.active_streamers ?? 0;
+                document.getElementById('mPending').innerText = cm.pending_payouts ?? 0;
+
+                // 70/30 Treasury ledger
+                const tr = data.treasury || {};
+                document.getElementById('tGross').innerText = (tr.total_gross_revenue_trx ?? 0).toFixed(4) + ' TRX';
+                document.getElementById('tProfit').innerText = (tr.total_admin_profit_trx ?? 0).toFixed(4) + ' TRX';
+                document.getElementById('tAvailable').innerText = (tr.available_admin_trx ?? 0).toFixed(4) + ' TRX';
+                document.getElementById('tUserPayouts').innerText = (tr.total_user_payouts_trx ?? 0).toFixed(4) + ' TRX';
+                document.getElementById('tWithdrawn').innerText = (tr.admin_withdrawn_trx ?? 0).toFixed(4) + ' TRX';
+                // Pre-fill saved wallet if the field is empty
+                const cw = document.getElementById('cashoutWallet');
+                if (cw && !cw.value && tr.admin_wallet_address) { cw.value = tr.admin_wallet_address; }
+                // Recent admin cashouts
+                fetch('/api/treasury').then(r=>r.json()).then(t=>{
+                    const box = document.getElementById('adminWithdrawals');
+                    if (!box) return;
+                    if (!t.withdrawals || t.withdrawals.length === 0) {
+                        box.innerHTML = '<span style="color:#64748b;">No admin cashouts yet.</span>';
+                    } else {
+                        box.innerHTML = '<b style="color:#cbd5e1;">Recent cashouts:</b><br>' + t.withdrawals.map(w =>
+                            `• ${w.amount_trx.toFixed(4)} TRX → <code style="font-size:11px;">${w.destination_wallet}</code> <span style="color:#64748b;">(${w.timestamp})</span>`
+                        ).join('<br>');
+                    }
+                }).catch(()=>{});
+
+                // Payout queue
+                const pCont = document.getElementById('payoutsContainer');
+                if (!data.payouts || data.payouts.length === 0) {
+                    pCont.innerHTML = '<p style="color:#64748b; font-size:13px;">No pending payouts. 🎉</p>';
+                } else {
+                    pCont.innerHTML = data.payouts.map(p => `
+                        <div class="log-box" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                            <div>
+                                <b>#${p.id}</b> • User <b>${p.user_id}</b> (@${p.username || 'none'})<br>
+                                <span style="color:#f59e0b;">${p.amount.toFixed(4)} ${p.currency}</span>
+                                <span style="color:#64748b;"> → </span><code style="font-size:11px;">${p.wallet || 'No wallet'}</code>
+                            </div>
+                            <div>
+                                <button class="btn-ban" style="background:#10b981;" onclick="reviewPayout(${p.id}, 'approve')">✅ Approve</button>
+                                <button class="btn-ban" onclick="reviewPayout(${p.id}, 'reject')">❌ Reject</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
 
                 // Sound trigger on new scam interception
                 if (data.metrics.flagged_leaks > lastFlaggedCount && lastFlaggedCount !== 0) {
@@ -178,6 +297,53 @@ HTML_DASHBOARD = """<!DOCTYPE html>
             updateDashboard();
         }
 
+        async function reviewPayout(txId, action) {
+            const verb = action === 'approve' ? 'Approve & mark PAID' : 'Reject';
+            if (!confirm(verb + ' payout #' + txId + '?')) return;
+            const res = await fetch('/api/payout?tx_id=' + txId + '&action=' + action, { method: 'POST' });
+            const out = await res.json();
+            if (out.status === 'ok') { updateDashboard(); }
+            else { alert('Error: ' + (out.error || 'unknown')); }
+        }
+
+        async function sendBroadcast() {
+            const text = document.getElementById('broadcastText').value.trim();
+            if (!text) { alert('Please type an announcement first.'); return; }
+            if (!confirm('Send this announcement to ALL registered users?')) return;
+            const res = await fetch('/api/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+            const out = await res.json();
+            if (out.status === 'ok') {
+                alert('Broadcast complete. Delivered: ' + out.sent + ', Failed: ' + out.failed);
+                document.getElementById('broadcastText').value = '';
+            } else {
+                alert('Broadcast error: ' + (out.error || 'unknown'));
+            }
+        }
+
+        async function adminCashout() {
+            const amount = parseFloat(document.getElementById('cashoutAmount').value);
+            const wallet = document.getElementById('cashoutWallet').value.trim();
+            if (!amount || amount <= 0) { alert('Enter a valid TRX amount.'); return; }
+            if (!confirm('Withdraw ' + amount + ' TRX from the 70% treasury' + (wallet ? ' to ' + wallet : ' to your saved wallet') + '?')) return;
+            const res = await fetch('/api/admin-cashout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount_trx: amount, destination_wallet: wallet })
+            });
+            const out = await res.json();
+            if (out.status === 'ok') {
+                alert('✅ Cashout recorded: ' + out.amount_trx + ' TRX → ' + out.wallet);
+                document.getElementById('cashoutAmount').value = '';
+                updateDashboard();
+            } else {
+                alert('Cashout error: ' + (out.error || 'unknown') + (out.available_admin_trx !== undefined ? ('\nAvailable: ' + out.available_admin_trx + ' TRX') : ''));
+            }
+        }
+
         setInterval(updateDashboard, 2500);
         updateDashboard();
     </script>
@@ -190,19 +356,34 @@ async def index(request):
 
 async def api_data(request):
     metrics = db.get_platform_metrics()
+    crypto = db.get_admin_dashboard_metrics()
+    treasury = db.get_admin_treasury_stats()
     rooms = db.get_active_rooms()
     raw_logs = db.get_recent_logs(30)
     users = db.get_all_users()
-    
+    payouts_raw = db.get_pending_withdrawals()
+
     logs = [
         {"id": l[0], "sender_id": l[1], "receiver_id": l[2], "text": l[3], "is_flagged": bool(l[4]), "flag_reason": l[5], "timestamp": l[6]}
         for l in raw_logs
     ]
+    # (id, user_id, currency, amount, status, created_at, username, trx_wallet, legacy_wallet)
+    payouts = [
+        {
+            "id": p[0], "user_id": p[1], "currency": p[2], "amount": p[3],
+            "status": p[4], "created_at": p[5], "username": p[6],
+            "wallet": p[7] or p[8] or "No wallet"
+        }
+        for p in payouts_raw
+    ]
     return web.json_response({
         "metrics": metrics,
+        "crypto": crypto,
+        "treasury": treasury,
         "rooms": rooms,
         "logs": logs,
-        "users": users
+        "users": users,
+        "payouts": payouts
     })
 
 async def api_ban(request):
@@ -224,11 +405,163 @@ async def api_end(request):
         db.end_chat(uid)
     return web.json_response({"status": "ok"})
 
+
+async def api_payout(request):
+    """Approve (mark PAID) or reject a pending payout from the dashboard."""
+    tx_id = int(request.query.get("tx_id", 0))
+    action = request.query.get("action", "")
+    if not tx_id or action not in ("approve", "reject"):
+        return web.json_response({"status": "error", "error": "invalid params"}, status=400)
+
+    if action == "approve":
+        affected = db.set_transaction_status(tx_id, "PAID", tx_hash="")
+        new_status = "PAID"
+    else:
+        affected = db.set_transaction_status(tx_id, "REJECTED")
+        new_status = "REJECTED"
+
+    # Best-effort real-time notification to the affected user via the bot.
+    if affected and BOT_SENDER:
+        msg = (f"✅ Your withdrawal request #{tx_id} has been approved and paid! 🎉"
+               if new_status == "PAID"
+               else f"❌ Your withdrawal request #{tx_id} was rejected. The reserved balance is available again.")
+        try:
+            await BOT_SENDER(affected, msg)
+        except Exception:
+            pass
+
+    return web.json_response({"status": "ok", "new_status": new_status})
+
+
+async def api_broadcast(request):
+    """Broadcast a text announcement to all registered users via the bot."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+    text = (body.get("text") or "").strip()
+    if not text:
+        return web.json_response({"status": "error", "error": "empty text"}, status=400)
+    if not BOT_SENDER:
+        return web.json_response({"status": "error", "error": "bot not connected"}, status=503)
+
+    user_ids = db.get_all_user_ids()
+    sent, failed = 0, 0
+    for uid in user_ids:
+        try:
+            await BOT_SENDER(uid, f"📢 **Sreymara Announcement**\n\n{text}")
+            sent += 1
+        except Exception:
+            failed += 1
+    return web.json_response({"status": "ok", "sent": sent, "failed": failed})
+
+
+async def api_watch_ping(request):
+    """Server-verified watch-to-earn endpoint for the Mini App.
+
+    Trust boundary: the Telegram ``initData`` signature is validated against the
+    bot token before any earnings are credited — the client never asserts its own
+    balance (see miniapp/README.md). One ping == 1 watched minute.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+
+    init_data = body.get("initData", "")
+    user = webapp_auth.verify_init_data(init_data, BOT_TOKEN)
+    if not user or "id" not in user:
+        return web.json_response({"status": "error", "error": "unauthorized"}, status=401)
+
+    user_id = user["id"]
+    minutes = int(body.get("minutes", 1))
+    if minutes < 1:
+        minutes = 1
+    # Cap a single ping to a sane maximum to limit abuse of one call.
+    minutes = min(minutes, 15)
+
+    trx_rate = float(body.get("trx_rate", db.DEFAULT_TRX_RATE))
+    result = db.record_watch_ping(user_id, minutes=minutes, trx_rate=trx_rate)
+
+    u = db.get_user_full(user_id) or {}
+    return web.json_response({
+        "status": "ok",
+        "credited": result,
+        "points": u.get("merlin_points", 0),
+        "available_trx": db.get_available_balance(user_id, "TRX"),
+        "watch_time_minutes": u.get("watch_time_minutes", 0)
+    })
+
+
+async def api_treasury(request):
+    """Return the 70/30 treasury ledger snapshot + recent admin cashouts."""
+    stats = db.get_admin_treasury_stats()
+    withdrawals = [
+        {"id": w[0], "amount_trx": w[1], "destination_wallet": w[2], "tx_hash": w[3], "timestamp": w[4]}
+        for w in db.get_admin_withdrawals(20)
+    ]
+    return web.json_response({"treasury": stats, "withdrawals": withdrawals})
+
+
+async def api_srey(request):
+    """VIP lounge Srey AI chat proxy. Verifies initData, forwards to the Gemini engine."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return web.json_response({"status": "error", "error": "empty prompt"}, status=400)
+    # Only allow inside Telegram (signed initData) — the chat is a VIP perk.
+    if not webapp_auth.verify_init_data(body.get("initData", ""), BOT_TOKEN):
+        return web.json_response({"status": "error", "error": "unauthorized"}, status=401)
+    if not AI_RESPONDER:
+        return web.json_response({
+            "status": "ok",
+            "reply": "✨ Srey is warming up — connect the Gemini engine and try again shortly."
+        })
+    reply = await AI_RESPONDER(prompt)
+    return web.json_response({"status": "ok", "reply": reply})
+
+
+async def api_admin_cashout(request):
+    """Owner cashout: debit available 70% treasury profit to a TRC-20 wallet."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+    amount = float(body.get("amount_trx", 0) or 0)
+    wallet = (body.get("destination_wallet") or "").strip()
+    if amount <= 0:
+        return web.json_response({"status": "error", "error": "amount must be positive"}, status=400)
+    if not wallet:
+        stats = db.get_admin_treasury_stats()
+        wallet = stats.get("admin_wallet_address") or ""
+    if not wallet:
+        return web.json_response({"status": "error", "error": "destination wallet required"}, status=400)
+
+    wd_id = db.record_admin_cashout(amount, wallet)
+    if wd_id is None:
+        available = db.get_admin_treasury_stats()["available_admin_trx"]
+        return web.json_response(
+            {"status": "error", "error": "insufficient treasury", "available_admin_trx": available},
+            status=400
+        )
+    return web.json_response({"status": "ok", "withdrawal_id": wd_id, "amount_trx": amount, "wallet": wallet})
+
+
 def create_admin_app():
     app = web.Application()
     app.router.add_get('/', index)
     app.router.add_get('/api/data', api_data)
+    app.router.add_get('/api/treasury', api_treasury)
     app.router.add_post('/api/ban', api_ban)
     app.router.add_post('/api/vip', api_vip)
     app.router.add_post('/api/end', api_end)
+    app.router.add_post('/api/payout', api_payout)
+    app.router.add_post('/api/admin-cashout', api_admin_cashout)
+    app.router.add_post('/api/broadcast', api_broadcast)
+    app.router.add_post('/api/watch-ping', api_watch_ping)
+    app.router.add_post('/api/srey', api_srey)
     return app

@@ -28,22 +28,27 @@ if(serveDist) {
 app.use(express.static(publicFolderName));
 
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + `/${indexFolderName}/index.html`);
+  res.sendFile('index.html', {root: `${__dirname}/${indexFolderName}`});
 });
 
-// Serve cinema.html directly for /cinema or /cinema.html
+// Serve cinema.html for the cinema / Telegram Mini App at its local routes.
+// Express 5 / path-to-regexp v8 dropped the optional "? suffix and inline regex
+// params like ":section([a-z]+)", so each shape is listed explicitly as an array.
+// sendFile uses the {root} option so the file resolves under indexFolderName
+// regardless of where the project lives on disk (static middleware above still
+// serves index.html, cinema.html and assets directly by filename).
 app.get(['/cinema', '/cinema.html'], (req, res) => {
-  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+  res.sendFile('cinema.html', {root: `${__dirname}/${indexFolderName}`});
 });
 
-// Handle hash-based routing for cinema - redirect to clean URL
+// Handle hash-based routing for cinema (e.g. /#/cinema, /cinema/, /cinema.html)
 app.get(/^\/?(?:#\/)?cinema(?:\/|\.html)?$/, (req, res) => {
-  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+  res.sendFile('cinema.html', {root: `${__dirname}/${indexFolderName}`});
 });
 
-// Handle path-based routing for cinema sections
-app.get('/cinema/:section?', (req, res) => {
-  res.sendFile(__dirname + `/${indexFolderName}/cinema.html`);
+// Handle path-based routing for cinema sections (e.g. /cinema/upcoming)
+app.get(['/cinema', '/cinema/:section'], (req, res) => {
+  res.sendFile('cinema.html', {root: `${__dirname}/${indexFolderName}`});
 });
 
 const server = useHttp ? http : https;

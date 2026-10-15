@@ -1,9 +1,26 @@
 {
   "rewrites": [
+    { "source": "/", "destination": "/miniapp/index.html" },
+    { "source": "/miniapp", "destination": "/miniapp/index.html" },
     { "source": "/cinema", "destination": "/cinema.html" },
     { "source": "/miniapp/(.*)", "destination": "/miniapp/$1" }
   ],
   "headers": [
-    { "source": "/miniapp/(.*)", "headers": [ { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" } ] }
+    {
+      "source": "/miniapp/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" },
+        { "key": "Access-Control-Max-Age", "value": "86400" }
+      ]
+    }
   ]
 }
+
