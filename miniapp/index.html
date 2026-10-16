@@ -1,189 +1,203 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover" />
-  <title>Sreymara Paradise - Cinema & Earn</title>
-  <meta name="description" content="Sreymara Luxury Cinema & Lounge - watch live, chat with AI, earn real TRX." />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Sreymara Cinema & VIP Lounge</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    :root{
-      --bg:#07090e; --bg2:#0d111a;
-      --glass:rgba(18,24,38,.75);
-      --glass-border:rgba(255,255,255,.08);
-      --cyan:#00f2fe; --cyan-dim:#4facfe;
-      --gold:#d4af37; --gold-soft:#f3e5ab;
-      --emerald:#00e676;
-      --txt:#e6edf7; --muted:#8b9bb4;
-      --font:-apple-system,'SF Pro Display',Inter,sans-serif;
-    }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0}
-    body{
-      font-family:var(--font);
-      background:
-        radial-gradient(1200px 700px at 15% -5%,rgba(16,24,40,.96),transparent 60%),
-        radial-gradient(1000px 600px at 100% 0%,rgba(212,175,55,.08),transparent 55%),
-        radial-gradient(900px 600px at 0% 100%,rgba(0,230,118,.05),transparent 55%),
-        var(--bg);
-      color:var(--txt);min-height:100vh;overflow-x:hidden;
-    }
-    a{color:var(--cyan)}
-    .wrap{max-width:1100px;margin:0 auto;padding:0 18px 120px}
-    .hidden{display:none !important}
-    .glass{background:rgba(18,24,38,.75);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-    .hint{font-size:12px;color:var(--muted);margin-top:8px}
-  </style>
-  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.2/dist/hls.min.js"></script>
+  <script src="https://unpkg.com/@tonconnect/sdk@0.7.0/dist/tonconnect.umd.js"></script>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="wrap">
-    <header class="telemetry glass">
-      <div class="brand"><div class="logo">🍿</div><h1>Sreymara <span class="accent">Paradise</span></h1></div>
-      <div class="telemetry-rightside">
-        <div class="user-chip"><span id="tg-user">👤 Guest</span></div>
-        <div class="earn-badge"><span class="radar-pulse"></span><span class="earn-rate">+0.05 TRX / 10m</span><span id="earn-status"></span></div>
-        <span id="vip-badge" class="pill vip hidden" title="VIP">👑 VIP</span>
-        <div class="balance-card glass">
-          <div class="balance-row"><span class="balance-label">Sreymara Points</span><span id="points-badge" class="balance-val">✨ 0</span></div>
-          <div class="balance-row"><span class="balance-label">TRX Balance</span><span id="trx-badge" class="balance-val">💵 0.0000</span></div>
-        </div>
-        <button id="connect-wallet" class="btn-ton"><span class="btn-ton-label">TON Wallet</span><span class="ton-active"></span></button>
-      </div>
-    </header>
-
-    <div id="outside-banner" class="glass outside-banner">🌐 You're viewing in a browser. Open inside Telegram to link your account and earn real TRX.</div>
-
-    <nav class="tabs glass" id="tabs">
-      <button class="tab active" data-tab="cinema">🍿 Merlin Cinema</button>
-      <button class="tab" data-tab="live">📡 Al Jazeera 24/7</button>
-      <button class="tab" data-tab="vip">💎 VIP Lounge &amp; Srey AI</button>
-      <button class="tab vault-tab" data-tab="vault">👑 Owner Vault</button>
-    </nav>
-
-    <section class="panel active" id="panel-cinema">
-      <div class="hero glass"><div class="banner"></div><div class="content"><h2>🎬 Merlin Cinema Series</h2><p>Premium on-demand series &amp; premieres. Watch to earn Sreymara Points &amp; TRX in real time.</p><div class="row"><button class="btn gold" id="cinema-quickplay">▶ Quick Play</button><button class="btn ghost" id="cinema-launch">🍿 Open Full Theater</button></div></div></div>
-      <div class="video-stage glass">
-        <video id="video-player" controls playsinline></video>
-        <div class="player-hint" id="player-hint">Pick a title below or hit Quick Play.</div>
-        <div class="video-badge"><span class="badge-live"><span class="badge-dot"></span>LIVE</span><span class="badge-hd">HD 1080P</span><span class="badge-viewers">🍿 1,280 Viewing Now</span></div>
-        <button class="play-mute-overlay">🎧 Unlock 80% volume</button>
-      </div>
-      <div class="stream-switcher" role="tablist" aria-label="Channel switcher">
-        <button class="stream-pill active" data-channel="merlin"><span class="stream-icon">🍿</span><span class="stream-label">Merlin Cinema Series (VIP Premier)</span></button>
-        <button class="stream-pill" data-channel="aljazeera"><span class="stream-icon">📡</span><span class="stream-label">Al Jazeera English (24/7 Global Live)</span></button>
-      </div>
-      <div class="wte glass">
-        <div class="row"><span id="wte-timer" class="wte-timer">⏱ 00:00</span><span id="wte-next" class="hint" style="margin:0">Paused</span><button id="wte-toggle" class="btn-cyan" style="margin-left:auto">▶ Start Earning</button></div>
-        <small>Watch time is verified server-side (signed Telegram initData) and split 70/30 — you keep your 30% share. Balances are never stored locally.</small>
-      </div>
-      <h3 style="margin:18px 0 10px">Now Showing</h3>
-      <div class="grid" id="catalog-grid"></div>
-    </section>
-    <!--PANELS_TAIL-->
-
-    <section class="panel" id="panel-live">
-      <div class="hero glass"><div class="banner"></div><div class="content"><h2>📡 Al Jazeera English — 24/7 Live</h2><p>Continuous live news. Tune in and keep earning while you stay informed.</p><div class="row"><button class="btn-cyan" id="live-play">▶ Watch Live</button><span class="pill" style="background:rgba(244,63,94,.2);color:#fecaca">● LIVE</span></div></div></div>
-      <div class="video-stage glass">
-        <video id="video-player-live" controls playsinline></video>
-        <div class="player-hint" id="live-hint">Tap "Watch Live" to start the stream.</div>
-        <div class="video-badge"><span class="badge-live"><span class="badge-dot"></span>LIVE</span><span class="badge-hd">HD 1080P</span><span class="badge-viewers">🍿 2,847 Viewing Now</span></div>
-        <button class="play-mute-overlay">🎧 Unlock 80% volume</button>
-      </div>
-      <div class="stream-switcher" role="tablist" aria-label="Channel switcher">
-        <button class="stream-pill active" data-channel="aljazeera"><span class="stream-icon">📡</span><span class="stream-label">Al Jazeera English (24/7 Global Live)</span></button>
-        <button class="stream-pill" data-channel="merlin"><span class="stream-icon">🍿</span><span class="stream-label">Merlin Cinema Series (VIP Premier)</span></button>
-      </div>
-    </section>
-
-    <section class="panel" id="panel-vip">
-      <div class="hero glass"><div class="banner"></div><div class="content"><h2>💎 VIP Lounge &amp; Srey AI</h2><p>Chat with Srey, your luxury AI concierge — dating advice, translations, tasks, and more.</p></div></div>
-      <div class="vip-lounge glass" style="padding:16px">
-        <div class="ai-avatar"><span class="holo-badge">✦ ✦ ✦</span><span class="ai-name">Srey AI</span><span class="ai-role">Executive Concierge</span></div>
-        <div class="chat glass" style="padding:0;margin-top:14px">
-          <div class="chat-header"><span>Chat Log</span><span class="chat-status">● Online</span></div>
-          <div class="chat-log" id="chat-log"><div class="msg ai">✨ Welcome to the VIP Lounge. I'm Srey — ask me anything!</div></div>
-          <div class="chat-input"><input id="chat-text" type="text" placeholder="Ask Srey anything…" /><button class="btn-gold" id="chat-send">Send</button></div>
-          <div class="quick-chips"><span class="chip">💬 Dating Advice</span><span class="chip">🍿 What's playing next?</span><span class="chip">💰 Check My 30% Earnings</span><span class="chip">🚀 Invite a Friend</span></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel" id="panel-vault">
-      <div class="vault-card glass" id="vault-locked"><div class="vault-icon">🔒</div><h3 style="margin:8px 0">Owner Vault — Restricted</h3><p class="hint">This 70% treasury vault is visible only to the platform owner.</p></div>
-      <div id="vault-content" class="hidden">
-        <div class="glass" style="padding:16px">
-          <div class="vault-label"><span class="vault-icon-big">🏦</span><span class="vault-title">Executive Platform Treasury</span><span class="vault-sub">(70% Owner Share)</span></div>
-          <div class="vault-grid">
-            <div class="vcard"><h3>Gross Platform Volume (100%)</h3><div id="tGross" class="val gold">0.0000</div></div>
-            <div class="vcard"><h3>Your Net Owner Reserve (70%)</h3><div id="tProfit" class="val gold">0.0000</div></div>
-            <div class="vcard"><h3>Available Cashout</h3><div id="tAvailable" class="val green">0.0000</div></div>
-            <div class="vcard"><h3>Distributed User Rewards (30%)</h3><div id="tUserPayouts" class="val cyan">0.0000</div></div>
-            <div class="vcard"><h3>Admin Withdrawn</h3><div id="tWithdrawn" class="val red">0.0000</div></div>
-          </div>
-          <div class="vault-actions">
-            <input id="cashoutAmount" class="input" type="number" step="0.000001" min="0" placeholder="Amount TRX" style="width:150px" />
-            <input id="cashoutWallet" class="input" type="text" placeholder="TRC-20 destination (or saved)" style="flex:1;min-width:200px" />
-
-    </div>
-
-    <aside id="wallet-drawer" class="glass drawer hidden"><h3 style="margin-top:0">Connected Wallets</h3><pre id="wallet-info" style="white-space:pre-wrap;word-break:break-all;font-size:12px;color:var(--muted)">None</pre><div class="wallet-actions"><button id="connect-wallet" class="btn-cyan btn-small">🔗 TON Wallet</button><button id="connect-phantom" class="btn-phantom btn-small">🦑 Phantom</button></div><button id="close-drawer" class="btn-ghost">Close</button></aside>
-
-    <footer class="foot">Sreymara Paradise • Sample media • Earnings are server-verified &amp; split 70/30.</footer>
-    <a id="tg-fab" class="tg-fab" href="https://t.me/KANSASNELLYBOT" target="_blank" rel="noopener">✈️ Open in Telegram @KANSASNELLYBOT</a>
+  <!-- Outside Browser Banner -->
+  <div id="outside-banner" class="outside-banner" style="display:none;">
+    🌐 You're viewing in a browser. <a href="https://t.me/KANSASNELLYBOT" target="_blank">Open inside Telegram</a> to earn crypto rewards!
   </div>
 
-  <nav class="dock glass" id="tabs-bottom">
-    <button class="tab active" data-tab="cinema"><span class="dock-icon">🍿</span><span class="dock-label">Cinema</span></button>
-    <button class="tab" data-tab="live"><span class="dock-icon">📡</span><span class="dock-label">Live TV</span></button>
-    <button class="tab" data-tab="vip"><span class="dock-icon">💎</span><span class="dock-label">VIP Lounge</span></button>
-    <button class="tab vault-tab" data-tab="vault"><span class="dock-icon">👑</span><span class="dock-label">Owner Vault</span></button>
-  </nav>
+  <div class="app-container">
+    <!-- Luxury Header Telemetry -->
+    <header class="header-pill glass">
+      <div class="user-chip">
+        <span class="avatar-ring">👑</span>
+        <div class="user-info">
+          <span class="user-name" id="user-display">Guest</span>
+          <span class="badge vip-badge">VIP LOUNGE</span>
+        </div>
+      </div>
+      <div class="telemetry-badges">
+        <div class="earning-rate"><span class="radar-dot"></span>+0.05 TRX / 10m</div>
+        <div class="balance-pill">
+          <span>✨ <strong id="user-points">50</strong> PTS</span>
+          <span>💎 <strong id="user-trx">0.000</strong> TRX</span>
+        </div>
+      </div>
+      <button id="btn-ton" class="btn-ton" onclick="window.UrbanCinema.connectTon()">TON Wallet</button>
+    </header>
 
-  <script>
-  (function(){
-    var switchers = Array.prototype.slice.call(document.querySelectorAll('.stream-switcher'));
-    switchers.forEach(function(sw){
-      sw.addEventListener('click', function(e){
-        var pill = e.target.closest('.stream-pill'); if(!pill) return;
-        sw.querySelectorAll('.stream-pill').forEach(function(p){ p.classList.remove('active'); });
-        pill.classList.add('active');
-        var channel = pill.dataset.channel;
-        var urban = window.UrbanCinema;
-        var onCinema = sw.closest('#panel-cinema');
-        if (onCinema){
-          if (channel === 'aljazeera'){ if(urban&&urban.switchTab) urban.switchTab('live'); if(urban&&urban.loadLive) urban.loadLive(); }
-          else { if(urban&&urban.loadMerlin) urban.loadMerlin(0); }
-        } else {
-          if (channel === 'aljazeera'){ if(urban&&urban.loadLive) urban.loadLive(); }
-          else { if(urban&&urban.switchTab) urban.switchTab('cinema'); if(urban&&urban.loadMerlin) urban.loadMerlin(0); }
-        }
-      });
-    });
-    var playMutes = document.querySelectorAll('.play-mute-overlay');
-    playMutes.forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var stage = btn.closest('.video-stage'); var v = stage ? stage.querySelector('video') : null;
-        if (v) v.muted = !v.muted;
-      });
-    });
-    var chips = document.querySelectorAll('.quick-chips .chip');
-    chips.forEach(function(chip){
-      chip.addEventListener('click', function(){
-        var input = document.getElementById('chat-text'); if (input) { input.value = chip.textContent.trim(); input.focus(); }
-      });
-    });
-  })();
-  </script>
-  <script src="./app.js"></script>
-</body>
-</html>
+    <!-- DVD Resume Machine Banner -->
+    <div id="resume-banner" class="resume-card glass" style="display:none;">
+      <div class="resume-info">
+        <span class="resume-icon">📼</span>
+        <div>
+          <strong id="resume-title">Merlin - S1 E1</strong>
+          <span id="resume-time" class="resume-sub">Paused at 04:20</span>
+        </div>
+      </div>
+      <div class="resume-actions">
+        <button class="btn-resume-play" onclick="window.UrbanCinema.resumePlayback()">▶ Resume</button>
+        <button class="btn-resume-cancel" onclick="window.UrbanCinema.dismissResume()">✕</button>
+      </div>
+    </div>
 
-            <button class="btn-gold" id="cashout-btn">🏦 Execute TRX Cashout</button>
-          </div>
-          <div id="adminWithdrawals" class="hint" style="margin-top:12px"></div>
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs glass">
+      <button class="tab-btn active" data-tab="cinema" onclick="window.UrbanCinema.switchTab('cinema')">🍿 Cinema</button>
+      <button class="tab-btn" data-tab="live" onclick="window.UrbanCinema.switchTab('live')">📡 Live TV</button>
+      <button class="tab-btn" data-tab="series" onclick="window.UrbanCinema.switchTab('series')">⚔️ Series</button>
+      <button class="tab-btn" data-tab="vip" onclick="window.UrbanCinema.switchTab('vip')">💎 VIP Lounge</button>
+      <button class="tab-btn vault-tab" id="tab-btn-vault" data-tab="vault" onclick="window.UrbanCinema.switchTab('vault')">👑 Vault</button>
+    </nav>
+
+    <!-- MAIN VIEWPORT / VIDEO STAGE -->
+    <section class="stage-section glass">
+      <div class="stage-header">
+        <span class="live-pill" id="stage-badge">🔴 LIVE HD</span>
+        <span class="now-playing-title" id="stage-title">Al Jazeera English — 24/7 Global Live</span>
+        <span class="viewers-pill">👥 1,420 Watching</span>
+      </div>
+
+      <div class="video-container" id="video-wrapper">
+        <video id="main-video" playsinline webkit-playsinline preload="auto"></video>
+        <iframe id="live-iframe" style="display:none;" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>
+        
+        <div id="audio-unlock-overlay" class="audio-overlay" onclick="window.UrbanCinema.unlockAudio()">
+          <span>🔊 Tap to Unmute & Enjoy HD Audio (80% Volume)</span>
+        </div>
+      </div>
+
+      <div class="stage-controls">
+        <div class="channel-pills">
+          <button class="pill-btn active" id="btn-chan-live" onclick="window.UrbanCinema.loadLive()">📡 Al Jazeera Live</button>
+          <button class="pill-btn" id="btn-chan-merlin" onclick="window.UrbanCinema.loadMerlin()">🍿 Merlin Series</button>
+        </div>
+        <div class="wte-counter">
+          ⏱️ <span id="wte-timer">00:00</span>
+          <span class="wte-status" id="wte-status">Watching (70/30 earning active)</span>
         </div>
       </div>
     </section>
 
+    <!-- PANELS -->
+    <main class="panels-container">
+      <!-- 1. CINEMA CATALOG PANEL -->
+      <section id="panel-cinema" class="panel-content active">
+        <h3 class="section-title">🍿 Featured Cinema & VIP Premieres</h3>
+        <div class="cards-grid" id="cinema-grid"></div>
+      </section>
+
+      <!-- 2. LIVE TV PANEL -->
+      <section id="panel-live" class="panel-content">
+        <h3 class="section-title">📡 Global 24/7 Live Broadcasts</h3>
+        <div class="live-card glass">
+          <div class="live-banner-info">
+            <h4>Al Jazeera English — World News & Investigative Reports</h4>
+            <p>Non-stop global news coverage. Earn passive TRX rewards while you stay informed.</p>
+            <button class="btn-gold" onclick="window.UrbanCinema.loadLive()">▶ Watch Live Broadcast</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. FULL SERIES PANEL (Merlin S1-S5 & Legend of the Seeker S1-S2) -->
+      <section id="panel-series" class="panel-content">
+        <div class="series-nav">
+          <button class="series-btn active" id="btn-series-merlin" onclick="window.UrbanCinema.selectSeries('merlin')">🍿 Merlin (Seasons 1-5)</button>
+          <button class="series-btn" id="btn-series-seeker" onclick="window.UrbanCinema.selectSeries('seeker')">⚔️ Legend of the Seeker (Seasons 1-2)</button>
+        </div>
+        
+        <div class="season-pills" id="season-selector"></div>
+        <div class="episodes-grid" id="episodes-container"></div>
+      </section>
+
+      <!-- 4. VIP LOUNGE & SREY AI PANEL -->
+      <section id="panel-vip" class="panel-content">
+        <div class="vip-card glass">
+          <div class="ai-avatar-header">
+            <span class="ai-avatar">✨</span>
+            <div>
+              <h4>Srey AI • Luxury Concierge</h4>
+              <p>Powered by Google Gemini 1.5 Flash • Dating advice, translations & platform guidance</p>
+            </div>
+          </div>
+          <div class="chat-log" id="chat-log">
+            <div class="chat-msg ai">
+              <strong>Srey AI:</strong> Welcome to the Executive VIP Lounge! How can I assist you today?
+            </div>
+          </div>
+          <div class="quick-prompts">
+            <button onclick="window.UrbanCinema.sendQuickPrompt('🌟 Give me 3 great dating conversation starters')">💬 Dating Advice</button>
+            <button onclick="window.UrbanCinema.sendQuickPrompt('🍿 What are the top episodes of Merlin?')">🍿 Top Episodes</button>
+            <button onclick="window.UrbanCinema.sendQuickPrompt('💰 How does the 70/30 earnings split work?')">💰 Earnings Info</button>
+          </div>
+          <div class="chat-input-bar">
+            <input type="text" id="chat-input" placeholder="Ask Srey anything..." onkeydown="if(event.key==='Enter')window.UrbanCinema.sendChat()">
+            <button id="chat-send-btn" onclick="window.UrbanCinema.sendChat()">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. 👑 OWNER VAULT (70% SHARE) -->
+      <section id="panel-vault" class="panel-content">
+        <div class="vault-card glass">
+          <div class="vault-header">
+            <span class="vault-icon">🏛️</span>
+            <div>
+              <h3>EXECUTIVE OWNER TREASURY</h3>
+              <p>Platform Revenue Split: 70% Owner / 30% User Pool</p>
+            </div>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="m-label">GROSS VOLUME (100%)</span>
+              <span class="m-val" id="vault-gross">0.000 TRX</span>
+            </div>
+            <div class="metric-box gold-glow">
+              <span class="m-label">OWNER PROFIT (70%)</span>
+              <span class="m-val gold-text" id="vault-profit">0.000 TRX</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-label">USER PAYOUTS (30%)</span>
+              <span class="m-val" id="vault-user-payouts">0.000 TRX</span>
+            </div>
+            <div class="metric-box">
+              <span class="m-label">TOTAL WITHDRAWN</span>
+              <span class="m-val" id="vault-withdrawn">0.000 TRX</span>
+            </div>
+          </div>
+          <div class="cashout-box">
+            <h4>🏦 Instant 70% Treasury Cashout (TRC-20)</h4>
+            <div class="cashout-inputs">
+              <input type="text" id="admin-trx-wallet" placeholder="Enter TRC-20 Destination Wallet (T...)">
+              <input type="number" id="admin-cashout-amount" placeholder="Amount TRX" step="0.1">
+              <button class="btn-gold" onclick="window.UrbanCinema.executeAdminCashout()">Execute Cashout</button>
+            </div>
+            <p id="cashout-status" class="status-msg"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Sponsor Ad Modal -->
+    <div id="sponsor-modal" class="modal-overlay" style="display:none;">
+      <div class="modal-card glass">
+        <span class="modal-badge">📺 SPONSOR BREAK</span>
+        <h3>Watch & Earn Crypto Bonus</h3>
+        <p>Rewarding your wallet in <span id="ad-countdown" class="gold-text">15</span> seconds...</p>
+        <div class="ad-progress"><div id="ad-bar" class="ad-bar-fill"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

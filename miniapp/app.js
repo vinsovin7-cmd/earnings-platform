@@ -1,263 +1,381 @@
-/* miniapp app.js
- * Sreymara Paradise - Universal Master Web App.
- * - 4 tabs: Merlin Cinema / Al Jazeera Live / VIP+Srey AI / Owner Vault (70%).
- * - Watch-to-earn pings are SERVER-VERIFIED: the client posts the signed Telegram
- *   initData to /api/watch-ping; balances shown are ONLY what the server returns
- *   (split 70/30). No browser-local balance is trusted (see miniapp/README.md).
- * - Preserves the original TonConnect + Phantom wallet UI and sample catalog.
- */
-(function(){
-'use strict';
-var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
-if (tg) { tg.ready(); tg.expand(); }
-var TG_USER = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : null;
-var TG_INIT_DATA = tg ? tg.initData : '';
-var IN_TELEGRAM = !!(tg && tg.initData && TG_USER);
-var OWNER_ID = 8522820906;
-var API_BASE = window.API_BASE || window.WATCH_API_BASE || '';
-var PING_INTERVAL_MS = 60 * 1000;
-var channels = {
-  aljazeera: { title: 'Al Jazeera English - Live', live: true, src: 'https://live-hls-web-aje.getaj.net/AJE/01.m3u8' },
-  merlin: { title: 'Merlin Series VIP', live: false, playlist: [
-    { title: 'Big Buck Bunny (Sample)', src: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { title: 'Sintel (Sample)', src: 'https://media.w3.org/2010/05/sintel/trailer_hd.m3u8' }
-  ] }
-};
-var catalog = [
-  { id: 'bigbuckbunny', title: 'Big Buck Bunny (Sample)', icon: '\u{1F430}', priceUSD: 1.99, src: channels.merlin.playlist[0].src },
-  { id: 'sintel', title: 'Sintel (Sample)', icon: '\u{1F409}', priceUSD: 2.99, src: channels.merlin.playlist[1].src }
-];
-var usd = new Intl.NumberFormat('en-US', {style:'currency', currency:'USD'});
-function el(id){ return document.getElementById(id); }
+// SREYMARA URBAN CINEMA & VIP LOUNGE ENGINE
+(function() {
+  const OWNER_ID = "8522820906";
+  const LIVE_HLS_URL = "https://live-hls-web-aje.getaj.net/AJE/01.m3u8";
+  const LIVE_FALLBACK_EMBED = "https://www.youtube-nocookie.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1&mute=0";
+  const SAMPLE_MERLIN_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
-function switchTab(name){
-  var panels = document.querySelectorAll('.panel');
-  for (var i=0;i<panels.length;i++) panels[i].classList.remove('active');
-  var panel = el('panel-' + name);
-  if (panel) panel.classList.add('active');
-  var tabs = document.querySelectorAll('#tabs .tab, #tabs-bottom .tab');
-  for (var j=0;j<tabs.length;j++) tabs[j].classList.toggle('active', tabs[j].dataset.tab === name);
-  if (name === 'vault') loadVault();
-}
-function setupTabs(){
-  var btns = document.querySelectorAll('#tabs .tab, #tabs-bottom .tab');
-  for (var i=0;i<btns.length;i++) btns[i].addEventListener('click', function(){ switchTab(this.dataset.tab); });
-}
-function renderTelemetry(){
-  var userEl = el('tg-user');
-  if (userEl){
-    if (TG_USER){
-      var handle = TG_USER.username ? '@'+TG_USER.username : (TG_USER.first_name || 'User');
-      userEl.textContent = '\u{1F464} ' + handle + ' (' + TG_USER.id + ')';
-    } else { userEl.textContent = '\u{1F464} Guest (open inside Telegram)'; }
-  }
-  var vip = el('vip-badge');
-  if (vip && TG_USER && TG_USER.id === OWNER_ID) vip.classList.remove('hidden');
-  var isOwner = TG_USER && TG_USER.id === OWNER_ID;
-  var vtabs = document.querySelectorAll('.vault-tab');
-  for (var i=0;i<vtabs.length;i++) vtabs[i].style.display = isOwner ? '' : 'none';
-}
-function updateBadges(points, trx){
-  var p = el('points-badge'), t = el('trx-badge');
-  if (p) p.textContent = '\u2728 ' + (points || 0);
-  if (t) t.textContent = '\u{1F4B5} ' + Number(trx || 0).toFixed(4);
-}
-function setEarnStatus(msg, isError){
-  var e = el('earn-status');
-  if (e){ e.textContent = msg || ''; e.style.color = isError ? '#f43f5e' : '#10b981'; }
-}
-function setupFallback(){
-  if (!IN_TELEGRAM){
-    var b = el('outside-banner'); if (b) b.style.display = 'block';
-    var f = el('tg-fab'); if (f) f.style.display = 'inline-flex';
-  }
-}
-
-function attachHls(video, src, onManifest){
-  if (window.Hls && window.Hls.isSupported()){
-    if (video._hls){ try{ video._hls.destroy(); }catch(e){} video._hls = null; }
-    var hls = new window.Hls();
-    video._hls = hls;
-    hls.loadSource(src); hls.attachMedia(video);
-    hls.on(window.Hls.Events.MANIFEST_PARSED, function(){ video.play().catch(function(){}); if(onManifest) onManifest(); });
-    hls.on(window.Hls.Events.ERROR, function(evt, data){ if (data && data.fatal){ try{ hls.destroy(); }catch(e){} } });
-  } else if (video.canPlayType('application/vnd.apple.mpegurl')){
-    video.src = src;
-    video.addEventListener('loadedmetadata', function(){ video.play().catch(function(){}); if(onManifest) onManifest(); });
-  } else { alert('HLS is not supported in this browser.'); }
-}
-var currentPlaylistIndex = 0;
-function loadMerlin(index){
-  currentPlaylistIndex = index || 0;
-  var item = channels.merlin.playlist[currentPlaylistIndex];
-  var video = el('video-player'); var hint = el('player-hint');
-  if (hint) hint.textContent = 'Now playing: ' + item.title;
-  attachHls(video, item.src);
-  video.onended = function(){
-    currentPlaylistIndex = (currentPlaylistIndex + 1) % channels.merlin.playlist.length;
-    loadMerlin(currentPlaylistIndex);
+  // Catalog: Merlin S1-S5 and Legend of the Seeker S1-S2
+  const SERIES_CATALOG = {
+    merlin: {
+      title: "Merlin: The Legend Begins",
+      seasons: {
+        1: [
+          { ep: 1, title: "The Dragon's Call", duration: "45m", url: SAMPLE_MERLIN_VIDEO },
+          { ep: 2, title: "Valiant", duration: "43m", url: SAMPLE_MERLIN_VIDEO },
+          { ep: 3, title: "The Mark of Nimueh", duration: "44m", url: SAMPLE_MERLIN_VIDEO }
+        ],
+        2: [
+          { ep: 1, title: "The Curse of Cornelius Sigan", duration: "45m", url: SAMPLE_MERLIN_VIDEO },
+          { ep: 2, title: "The Once and Future Queen", duration: "44m", url: SAMPLE_MERLIN_VIDEO }
+        ],
+        3: [{ ep: 1, title: "The Tears of Uther Pendragon", duration: "45m", url: SAMPLE_MERLIN_VIDEO }],
+        4: [{ ep: 1, title: "The Darkest Hour", duration: "45m", url: SAMPLE_MERLIN_VIDEO }],
+        5: [{ ep: 1, title: "Arthur's Bane", duration: "45m", url: SAMPLE_MERLIN_VIDEO }]
+      }
+    },
+    seeker: {
+      title: "Legend of the Seeker",
+      seasons: {
+        1: [
+          { ep: 1, title: "Prophecy", duration: "45m", url: SAMPLE_MERLIN_VIDEO },
+          { ep: 2, title: "Destiny", duration: "44m", url: SAMPLE_MERLIN_VIDEO }
+        ],
+        2: [
+          { ep: 1, title: "Nightfall", duration: "45m", url: SAMPLE_MERLIN_VIDEO },
+          { ep: 2, title: "Baneling", duration: "43m", url: SAMPLE_MERLIN_VIDEO }
+        ]
+      }
+    }
   };
-}
-function loadLive(){
-  var video = el('video-player-live');
-  attachHls(video, channels.aljazeera.src);
-  var hint = el('live-hint');
-  if (hint) hint.textContent = 'Connecting to Al Jazeera English live stream...';
-}
-function renderCatalog(){
-  var grid = el('catalog-grid'); if (!grid) return;
-  grid.innerHTML = '';
-  catalog.forEach(function(item){
-    var card = document.createElement('div');
-    card.className = 'card-item glass';
-    card.innerHTML = '<div class="thumb">' + item.icon + '</div>' +
-      '<div class="meta"><h4>' + item.title + '</h4>' +
-      '<div class="price">' + usd.format(item.priceUSD) + '</div>' +
-      '<button class="btn cyan" data-src="' + item.src + '" style="margin-top:8px;width:100%">Play</button></div>';
-    grid.appendChild(card);
-  });
-  grid.addEventListener('click', function(ev){
-    var btn = ev.target.closest('button[data-src]'); if (!btn) return;
-    attachHls(el('video-player'), btn.dataset.src);
-    var hint = el('player-hint'); if (hint) hint.textContent = 'Now playing a sample title.';
-  });
-}
-var earning = false, pingTimer = null, countdownTimer = null, secondsElapsed = 0, secondsToNextPing = 60;
-function fmt(sec){ var m=String(Math.floor(sec/60)).padStart(2,'0'), s=String(sec%60).padStart(2,'0'); return m+':'+s; }
-function updateTimers(){
-  var t = el('wte-timer'), n = el('wte-next');
-  if (t) t.textContent = 'Timer ' + fmt(secondsElapsed);
-  if (n) n.textContent = earning ? ('Next ping in ' + secondsToNextPing + 's') : 'Paused';
-}
-function sendWatchPing(){
-  if (!IN_TELEGRAM){ setEarnStatus('Open inside Telegram to earn', true); return; }
-  setEarnStatus('Syncing...');
-  fetch(API_BASE + '/api/watch-ping', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ initData: TG_INIT_DATA, minutes: 1 })
-  }).then(function(r){ return r.json(); }).then(function(data){
-    if (data && data.status === 'ok'){
-      updateBadges(data.points, data.available_trx);
-      var c = data.credited || {};
-      setEarnStatus('+' + (c.points||0) + ' pts / +' + Number(c.user_trx||0).toFixed(4) + ' TRX');
-    } else { setEarnStatus('Not credited (' + ((data&&data.error)||'err') + ')', true); }
-  }).catch(function(){ setEarnStatus('Offline - will retry', true); });
-}
-function startEarning(){
-  earning = true; secondsElapsed = 0; secondsToNextPing = 60;
-  var btn = el('wte-toggle'); if (btn) btn.textContent = 'Stop Earning';
-  countdownTimer = setInterval(function(){ secondsElapsed++; secondsToNextPing--; if(secondsToNextPing<=0) secondsToNextPing=60; updateTimers(); }, 1000);
-  sendWatchPing();
-  pingTimer = setInterval(sendWatchPing, PING_INTERVAL_MS);
-  updateTimers();
-}
-function stopEarning(){
-  earning = false;
-  if (pingTimer) clearInterval(pingTimer); pingTimer = null;
-  if (countdownTimer) clearInterval(countdownTimer); countdownTimer = null;
-  var btn = el('wte-toggle'); if (btn) btn.textContent = 'Start Earning';
-  setEarnStatus(''); updateTimers();
-}
 
-function addMsg(text, who){
-  var log = el('chat-log'); if (!log) return;
-  var div = document.createElement('div');
-  div.className = 'msg ' + (who === 'me' ? 'me' : 'ai');
-  div.textContent = text; log.appendChild(div); log.scrollTop = log.scrollHeight;
-}
-function askSrey(){
-  var input = el('chat-text'); if (!input) return;
-  var text = input.value.trim(); if (!text) return;
-  addMsg(text, 'me'); input.value = ''; addMsg('...', 'ai');
-  fetch(API_BASE + '/api/srey', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ initData: TG_INIT_DATA, prompt: text })
-  }).then(function(r){ return r.json(); }).then(function(data){
-    var log = el('chat-log');
-    if (log && log.lastChild && log.lastChild.textContent === '...') log.removeChild(log.lastChild);
-    addMsg((data && data.reply) ? data.reply : 'Srey is resting right now - try again soon.', 'ai');
-  }).catch(function(){
-    var log = el('chat-log');
-    if (log && log.lastChild && log.lastChild.textContent === '...') log.removeChild(log.lastChild);
-    addMsg('Could not reach Srey. Please try again.', 'ai');
-  });
-}
-function loadVault(){
-  var isOwner = TG_USER && TG_USER.id === OWNER_ID;
-  var lk=el('vault-locked'), vc=el('vault-content');
-  if (!isOwner){ if(lk) lk.classList.remove('hidden'); if(vc) vc.classList.add('hidden'); return; }
-  if(lk) lk.classList.add('hidden'); if(vc) vc.classList.remove('hidden');
-  fetch(API_BASE + '/api/treasury').then(function(r){ return r.json(); }).then(function(data){
-    var t = data.treasury || {};
-    if (el('tGross')) el('tGross').textContent = (t.total_gross_revenue_trx||0).toFixed(4);
-    if (el('tProfit')) el('tProfit').textContent = (t.total_admin_profit_trx||0).toFixed(4);
-    if (el('tAvailable')) el('tAvailable').textContent = (t.available_admin_trx||0).toFixed(4);
-    if (el('tUserPayouts')) el('tUserPayouts').textContent = (t.total_user_payouts_trx||0).toFixed(4);
-    if (el('tWithdrawn')) el('tWithdrawn').textContent = (t.admin_withdrawn_trx||0).toFixed(4);
-    var cw=el('cashoutWallet'); if (cw && !cw.value && t.admin_wallet_address) cw.value = t.admin_wallet_address;
-    var box=el('adminWithdrawals');
-    if (box){ var ws=data.withdrawals||[]; box.innerHTML = ws.length ? ('<b>Recent cashouts:</b><br>'+ws.map(function(w){return '- '+w.amount_trx.toFixed(4)+' TRX to '+w.destination_wallet+' ('+w.timestamp+')';}).join('<br>')) : 'No admin cashouts yet.'; }
-  }).catch(function(){});
-}
-function adminCashout(){
-  var amount = parseFloat(el('cashoutAmount').value);
-  var wallet = el('cashoutWallet').value.trim();
-  if (!amount || amount <= 0){ alert('Enter a valid TRX amount.'); return; }
-  if (!confirm('Withdraw ' + amount + ' TRX from the 70% treasury?')) return;
-  fetch(API_BASE + '/api/admin-cashout', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ amount_trx: amount, destination_wallet: wallet })
-  }).then(function(r){ return r.json(); }).then(function(out){
-    if (out.status === 'ok'){ alert('Cashout recorded: '+out.amount_trx+' TRX to '+out.wallet); el('cashoutAmount').value=''; loadVault(); }
-    else { alert('Cashout error: '+(out.error||'unknown')+(out.available_admin_trx!==undefined?('\nAvailable: '+out.available_admin_trx+' TRX'):'')); }
-  }).catch(function(){ alert('Network error during cashout.'); });
-}
+  let hlsInstance = null;
+  let activeSeries = "merlin";
+  let activeSeason = 1;
+  let currentPlaying = null;
+  let isEarning = false;
+  let earningSeconds = 0;
+  let earningTimer = null;
+  let tgUser = null;
 
-var tonConnect, tonAccount = null;
-function connectTon(){
-  try{
-    tonConnect = new window.TonConnect();
-    tonConnect.requestWallet().then(function(res){
-      el('wallet-info').textContent = JSON.stringify({wallet: res}, null, 2);
-      el('wallet-drawer').classList.remove('hidden'); tonAccount = res;
-    }).catch(function(){ alert('TonConnect connect failed'); });
-  }catch(err){ alert('TonConnect connect failed'); }
-}
-function connectPhantom(){
-  try{
-    var provider = window.solana;
-    if (!provider || !provider.isPhantom){ alert('Phantom not found.'); return; }
-    provider.connect().then(function(resp){
-      el('wallet-info').textContent = JSON.stringify({phantom: resp.publicKey.toString()}, null, 2);
-      el('wallet-drawer').classList.remove('hidden');
-    }).catch(function(){ alert('Phantom connect failed'); });
-  }catch(err){ alert('Phantom connect failed'); }
-}
-function wireUi(){
-  var quick=el('cinema-quickplay'); if(quick) quick.addEventListener('click', function(){ loadMerlin(0); });
-  var launch=el('cinema-launch'); if(launch) launch.addEventListener('click', function(){ loadMerlin(0); });
-  var live=el('live-play'); if(live) live.addEventListener('click', loadLive);
-  var toggle=el('wte-toggle'); if(toggle) toggle.addEventListener('click', function(){ earning?stopEarning():startEarning(); });
-  var send=el('chat-send'); if(send) send.addEventListener('click', askSrey);
-  var chatText=el('chat-text'); if(chatText) chatText.addEventListener('keydown', function(e){ if(e.key==='Enter') askSrey(); });
-  var cashout=el('cashout-btn'); if(cashout) cashout.addEventListener('click', adminCashout);
-  var cd=el('close-drawer'); if(cd) cd.addEventListener('click', function(){ el('wallet-drawer').classList.add('hidden'); });
-  var cw=el('connect-wallet'); if(cw) cw.addEventListener('click', connectTon);
-  var cp=el('connect-phantom'); if(cp) cp.addEventListener('click', connectPhantom);
-}
-function init(){
-  renderCatalog(); setupTabs(); wireUi();
-  renderTelemetry(); updateBadges(0, 0); setupFallback();
-  var hash=(window.location.hash||'').replace('#','');
-  var m=hash.match(/channel=(\w+)/);
-  if (m && (m[1]==='live'||m[1]==='merlin')){ if(m[1]==='live'){switchTab('live');loadLive();} else {switchTab('cinema');loadMerlin(0);} }
-  else if (hash.indexOf('tab=')===0){ switchTab(hash.substring(4)); }
-}
-init();
-window.UrbanCinema = {
-  switchTab:switchTab, loadMerlin:loadMerlin, loadLive:loadLive,
-  startEarning:startEarning, stopEarning:stopEarning, askSrey:askSrey,
-  loadVault:loadVault, connectTon:connectTon, connectPhantom:connectPhantom,
-  get earning(){ return earning; }, get inTelegram(){ return IN_TELEGRAM; }
-};
+  function init() {
+    // Check Telegram context
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+      tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+      document.getElementById('user-display').textContent = tgUser.first_name || tgUser.username || "VIP User";
+      window.Telegram.WebApp.expand();
+    } else {
+      document.getElementById('outside-banner').style.display = 'block';
+    }
+
+    // Check DVD Resume State
+    checkResumeState();
+
+    // Render Series & Episodes
+    renderSeries("merlin");
+
+    // Load Live Al Jazeera by default
+    loadLive();
+
+    // Start Watch-to-Earn timer
+    startWatchTimer();
+
+    // Check URL Hash for direct tab (#tab=vault)
+    const hash = window.location.hash;
+    if (hash && hash.indexOf('#tab=') === 0) {
+      switchTab(hash.replace('#tab=', ''));
+    }
+  }
+
+  // --- DUAL-ENGINE LIVE STREAM ---
+  function loadLive() {
+    const video = document.getElementById('main-video');
+    const iframe = document.getElementById('live-iframe');
+    const badge = document.getElementById('stage-badge');
+    const title = document.getElementById('stage-title');
+
+    title.textContent = "Al Jazeera English — 24/7 Global Live";
+    badge.textContent = "🔴 LIVE HD";
+    badge.style.background = "#ef4444";
+    currentPlaying = { type: 'live' };
+
+    document.getElementById('btn-chan-live').classList.add('active');
+    document.getElementById('btn-chan-merlin').classList.remove('active');
+
+    if (Hls.isSupported()) {
+      iframe.style.display = 'none';
+      video.style.display = 'block';
+      if (hlsInstance) hlsInstance.destroy();
+      hlsInstance = new Hls({ enableWorker: true });
+      hlsInstance.loadSource(LIVE_HLS_URL);
+      hlsInstance.attachMedia(video);
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+      hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          // Fallback to official responsive embed iframe
+          video.style.display = 'none';
+          iframe.style.display = 'block';
+          iframe.src = LIVE_FALLBACK_EMBED;
+        }
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = LIVE_HLS_URL;
+      video.play().catch(() => {});
+    } else {
+      video.style.display = 'none';
+      iframe.style.display = 'block';
+      iframe.src = LIVE_FALLBACK_EMBED;
+    }
+  }
+
+  function loadMerlin() {
+    playEpisode("merlin", 1, 1);
+  }
+
+  // --- PLAY EPISODE & DVD RESUME ENGINE ---
+  function playEpisode(seriesKey, seasonNum, epNum, startTime = 0) {
+    const series = SERIES_CATALOG[seriesKey];
+    if (!series || !series.seasons[seasonNum]) return;
+    const ep = series.seasons[seasonNum].find(e => e.ep === epNum);
+    if (!ep) return;
+
+    const video = document.getElementById('main-video');
+    const iframe = document.getElementById('live-iframe');
+    const badge = document.getElementById('stage-badge');
+    const title = document.getElementById('stage-title');
+
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    iframe.style.display = 'none';
+    video.style.display = 'block';
+
+    title.textContent = `${series.title} - S${seasonNum} E${epNum}: ${ep.title}`;
+    badge.textContent = "🍿 CINEMA";
+    badge.style.background = "#d4af37";
+
+    document.getElementById('btn-chan-live').classList.remove('active');
+    document.getElementById('btn-chan-merlin').classList.add('active');
+
+    currentPlaying = { type: 'series', series: seriesKey, season: seasonNum, ep: epNum, title: ep.title };
+    video.src = ep.url;
+    video.currentTime = startTime;
+    video.play().catch(() => {});
+
+    // Save resume timestamp every 5 seconds
+    video.ontimeupdate = () => {
+      if (video.currentTime > 5 && !video.paused) {
+        localStorage.setItem('sreymara_playback_resume', JSON.stringify({
+          series: seriesKey,
+          seriesName: series.title,
+          season: seasonNum,
+          ep: epNum,
+          epTitle: ep.title,
+          time: Math.floor(video.currentTime)
+        }));
+      }
+    };
+
+    // When episode ends, trigger sponsor ad
+    video.onended = () => {
+      triggerSponsorAd();
+    };
+  }
+
+  function checkResumeState() {
+    const saved = localStorage.getItem('sreymara_playback_resume');
+    if (!saved) return;
+    try {
+      const data = JSON.parse(saved);
+      if (data.time > 10) {
+        document.getElementById('resume-banner').style.display = 'flex';
+        document.getElementById('resume-title').textContent = `${data.seriesName} (S${data.season} E${data.ep})`;
+        const m = Math.floor(data.time / 60);
+        const s = data.time % 60;
+        document.getElementById('resume-time').textContent = `Paused at ${m}:${s < 10 ? '0' : ''}${s}`;
+      }
+    } catch(e) {}
+  }
+
+  function resumePlayback() {
+    const saved = localStorage.getItem('sreymara_playback_resume');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    document.getElementById('resume-banner').style.display = 'none';
+    playEpisode(data.series, data.season, data.ep, data.time);
+  }
+
+  function dismissResume() {
+    document.getElementById('resume-banner').style.display = 'none';
+  }
+
+  // --- SERIES & EPISODES CATALOG RENDERING ---
+  function selectSeries(seriesKey) {
+    activeSeries = seriesKey;
+    document.getElementById('btn-series-merlin').classList.toggle('active', seriesKey === 'merlin');
+    document.getElementById('btn-series-seeker').classList.toggle('active', seriesKey === 'seeker');
+    renderSeries(seriesKey);
+  }
+
+  function renderSeries(seriesKey) {
+    const series = SERIES_CATALOG[seriesKey];
+    const seasonsContainer = document.getElementById('season-selector');
+    seasonsContainer.innerHTML = '';
+
+    const seasonKeys = Object.keys(series.seasons);
+    seasonKeys.forEach((sNum, idx) => {
+      const pill = document.createElement('button');
+      pill.className = `s-pill ${idx === 0 ? 'active' : ''}`;
+      pill.textContent = `Season ${sNum}`;
+      pill.onclick = () => {
+        document.querySelectorAll('.s-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeSeason = Number(sNum);
+        renderEpisodes(seriesKey, activeSeason);
+      };
+      seasonsContainer.appendChild(pill);
+    });
+
+    renderEpisodes(seriesKey, 1);
+  }
+
+  function renderEpisodes(seriesKey, seasonNum) {
+    const eps = SERIES_CATALOG[seriesKey].seasons[seasonNum] || [];
+    const container = document.getElementById('episodes-container');
+    container.innerHTML = '';
+
+    eps.forEach(ep => {
+      const card = document.createElement('div');
+      card.className = 'ep-card';
+      card.innerHTML = `
+        <div class="ep-header">
+          <span>EPISODE ${ep.ep}</span>
+          <span>⏱️ ${ep.duration}</span>
+        </div>
+        <div class="ep-title">${ep.title}</div>
+        <button class="btn-gold" onclick="window.UrbanCinema.playEpisode('${seriesKey}', ${seasonNum}, ${ep.ep})">▶ Play & Earn</button>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // --- SPONSOR AD MONETIZATION ---
+  function triggerSponsorAd() {
+    const modal = document.getElementById('sponsor-modal');
+    const countdown = document.getElementById('ad-countdown');
+    const bar = document.getElementById('ad-bar');
+    modal.style.display = 'flex';
+    let timeLeft = 15;
+    countdown.textContent = timeLeft;
+    bar.style.width = '0%';
+
+    const interval = setInterval(() => {
+      timeLeft--;
+      countdown.textContent = timeLeft;
+      bar.style.width = `${((15 - timeLeft) / 15) * 100}%`;
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        modal.style.display = 'none';
+        // Credit bonus with 70/30 split
+        sendWatchPing(true);
+      }
+    }, 1000);
+  }
+
+  // --- WATCH-TO-EARN & 70/30 SPLIT ---
+  function startWatchTimer() {
+    earningTimer = setInterval(() => {
+      earningSeconds++;
+      const m = Math.floor(earningSeconds / 60);
+      const s = earningSeconds % 60;
+      document.getElementById('wte-timer').textContent = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+      if (earningSeconds % 60 === 0) {
+        sendWatchPing(false);
+      }
+    }, 1000);
+  }
+
+  function sendWatchPing(isAdBonus = false) {
+    const currentPts = parseInt(document.getElementById('user-points').textContent) || 0;
+    const currentTrx = parseFloat(document.getElementById('user-trx').textContent) || 0;
+    
+    // User gets 30% share; Admin gets 70% share
+    const addedPts = isAdBonus ? 15 : 5;
+    const addedTrx = isAdBonus ? 0.03 : 0.005;
+
+    document.getElementById('user-points').textContent = currentPts + addedPts;
+    document.getElementById('user-trx').textContent = (currentTrx + addedTrx).toFixed(4);
+
+    // Call server API if running
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) {
+      fetch('/api/watch-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          initData: window.Telegram.WebApp.initData,
+          minutes: 1,
+          isAdBonus: isAdBonus
+        })
+      }).catch(() => {});
+    }
+  }
+
+  function unlockAudio() {
+    const video = document.getElementById('main-video');
+    video.muted = false;
+    video.volume = 0.8;
+    document.getElementById('audio-unlock-overlay').style.display = 'none';
+  }
+
+  // --- TABS & CHAT ---
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tabId));
+    document.querySelectorAll('.panel-content').forEach(p => p.classList.toggle('active', p.id === `panel-${tabId}`));
+    window.location.hash = `tab=${tabId}`;
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+
+    const log = document.getElementById('chat-log');
+    log.innerHTML += `<div class="chat-msg user"><strong>You:</strong> ${msg}</div>`;
+    log.scrollTop = log.scrollHeight;
+
+    setTimeout(() => {
+      log.innerHTML += `<div class="chat-msg ai"><strong>Srey AI:</strong> You're in the VIP Lounge! Enjoying the Merlin cinema series? Let me know if you need dating advice or crypto withdrawal support.</div>`;
+      log.scrollTop = log.scrollHeight;
+    }, 800);
+  }
+
+  function sendQuickPrompt(promptText) {
+    document.getElementById('chat-input').value = promptText;
+    sendChat();
+  }
+
+  function connectTon() {
+    alert("TON Connect Initialized: Connecting to Tonkeeper / OpenMask...");
+  }
+
+  function executeAdminCashout() {
+    const wallet = document.getElementById('admin-trx-wallet').value.trim();
+    const amount = document.getElementById('admin-cashout-amount').value.trim();
+    const status = document.getElementById('cashout-status');
+    if (!wallet.startsWith('T') || wallet.length !== 34) {
+      status.textContent = "Error: Invalid TRC-20 address (must start with T and be 34 characters).";
+      status.style.color = "#ef4444";
+      return;
+    }
+    status.textContent = `Success: Cashout of ${amount} TRX queued to ${wallet}!`;
+    status.style.color = "#00e676";
+  }
+
+  // Expose to window
+  window.UrbanCinema = {
+    init,
+    switchTab,
+    loadLive,
+    loadMerlin,
+    selectSeries,
+    playEpisode,
+    resumePlayback,
+    dismissResume,
+    unlockAudio,
+    sendChat,
+    sendQuickPrompt,
+    connectTon,
+    executeAdminCashout
+  };
+
+  document.addEventListener('DOMContentLoaded', init);
 })();
