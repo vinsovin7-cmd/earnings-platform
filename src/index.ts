@@ -6,6 +6,7 @@
 // a non-painting tab still boots
 import '@helpers/dom/previewUnfreeze';
 import '@helpers/dom/previewRaf';
+import {injectSpeedInsights} from '@vercel/speed-insights';
 import App from '@config/app';
 import blurActiveElement from '@helpers/dom/blurActiveElement';
 import {IS_STICKY_INPUT_BUGGED} from '@helpers/dom/fixSafariStickyInputFocusing';
@@ -75,6 +76,9 @@ import appChatBackground from '@components/chat/bubbles/chatBackground';
 //   })();
 // }
 
+
+// Initialize Vercel Speed Insights
+injectSpeedInsights();
 
 IMAGE_MIME_TYPES_SUPPORTED_PROMISE.then((mimeTypes) => {
   mimeTypes.forEach((mimeType) => {
