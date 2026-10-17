@@ -7,7 +7,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 // import devtools from 'solid-devtools/vite'
 import autoprefixer from 'autoprefixer';
 import {resolve} from 'path';
-import {existsSync, copyFileSync, readFileSync, realpathSync} from 'fs';
+import {existsSync, copyFileSync, mkdirSync, readFileSync, realpathSync} from 'fs';
 import {createHash} from 'crypto';
 import {ServerOptions} from 'vite';
 import {watchLangFile} from './watch-lang.js';
@@ -185,6 +185,30 @@ if(USE_OWN_SOLID) {
   console.log('using original solid');
 }
 
+// Vercel production serves the miniapp (Executive Cinema & VIP Lounge) as the root app,
+// but `vite build` only bundles the root tweb entries — dist/ used to contain no miniapp,
+// so the `/` -> `/miniapp/index.html` rewrite had nothing to serve (blank white screen).
+// Copy the miniapp into the build output as BOTH dist/{index.html,app.js,styles.css}
+// (root URLs: relative refs resolve to /app.js, /styles.css) and dist/miniapp/* (deep
+// URLs: refs resolve to /miniapp/app.js, /miniapp/styles.css) — zero 404s either way.
+const MINIAPP_FILES = ['index.html', 'app.js', 'styles.css'];
+const copyMiniappPlugin = () => ({
+  name: 'copy-miniapp-to-dist',
+  apply: 'build' as const,
+  closeBundle() {
+    const outDir = resolve(rootDir, 'dist');
+    const miniappDir = resolve(rootDir, 'miniapp');
+    for(const dir of [outDir, resolve(outDir, 'miniapp')]) {
+      mkdirSync(dir, {recursive: true});
+      for(const file of MINIAPP_FILES) {
+        const src = resolve(miniappDir, file);
+        if(existsSync(src)) copyFileSync(src, resolve(dir, file));
+      }
+    }
+    console.log('copied miniapp ->', outDir, 'and', resolve(outDir, 'miniapp'));
+  }
+});
+
 export default defineConfig({
   plugins: [
     // devtools({
@@ -201,6 +225,7 @@ export default defineConfig({
         server.middlewares.use(tonConnectManifest);
       }
     },
+    copyMiniappPlugin(),
     USE_SELF_SIGNED_CERTS ? basicSsl(BASIC_SSL_CONFIG) : undefined,
     // Only emit the bundle treemap (stats.html) when explicitly analyzing (ANALYZE=1):
     // it adds build time and writes a ~1.3MB file that otherwise gets globbed into the

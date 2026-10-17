@@ -1,6 +1,9 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
   "rewrites": [
-    { "source": "/", "destination": "/miniapp/index.html" },
+    { "source": "/", "destination": "/index.html" },
     { "source": "/miniapp", "destination": "/miniapp/index.html" },
     { "source": "/cinema", "destination": "/cinema.html" },
     { "source": "/miniapp/(.*)", "destination": "/miniapp/$1" }
