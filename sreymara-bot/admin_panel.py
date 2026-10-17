@@ -1,6 +1,131 @@
+# --- 70/30 revenue split: admin treasury ledger (single-row, id=1) + cashout log ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS admin_treasury (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            total_gross_revenue_trx REAL DEFAULT 0.0,
+            total_admin_profit_trx REAL DEFAULT 0.0,
+            total_user_payouts_trx REAL DEFAULT 0.0,
+            admin_withdrawn_trx REAL DEFAULT 0.0,
+            admin_wallet_address TEXT DEFAULT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # --- Viral referral columns (idempotent) ---
+    _add_column_if_missing(cur, "users", "referred_by", "INTEGER DEFAULT NULL")
+    _add_column_if_missing(cur, "users", "referral_count", "INTEGER DEFAULT 0")
+    cur.execute("UPDATE users SET referral_count = 0 WHERE referral_count IS NULL")
+    
+    # --- Gasless relay table for admin cashout and milestone triggers ---
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS gasless_relays (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            amount_trx REAL NOT NULL,
+            destination_wallet TEXT NOT NULL,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'PENDING'
+        )
+    """)
+    
+    # Seed the single treasury row so ledger updates never hit a missing row.
+    # Initialize with master wallet address and 10.00 USDT starting balance
+    cur.execute("""
+        INSERT OR IGNORE INTO admin_treasury
+            (id, total_gross_revenue_trx, total_admin_profit_trx, total_user_payouts_trx, admin_withdrawn_trx, admin_wallet_address)
+        VALUES (1, 10.0, 0.0, 0.0, 0.0, 'UQBLz9rXlNtlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVlbnBJ')
+    \"\"\")
+    
+    # Update existing row to ensure master wallet is set (for migrations)
+    cur.execute("""
+        UPDATE admin_treasury 
+        SET admin_wallet_address = COALESCE(admin_wallet_address, 'UQBLz9rXlNtlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVlbnBJ'),
+            total_gross_revenue_trx = CASE 
+                WHEN total_gross_revenue_trx = 0 THEN 10.0  -- Only set initial balance if zero
+                ELSE total_gross_revenue_trx 
+            END
+        WHERE id = 1
+    \"\"\")
+    
+
+    # --- Viral referral columns (idempotent) ---
+    _add_column_if_missing(cur, \"users\", \"referred_by\", \"INTEGER DEFAULT NULL\")
+    _add_column_if_missing(cur, \"users\", \"referral_count\", \"INTEGER DEFAULT 0\")
+    cur.execute(\"UPDATE users SET referral_count = 0 WHERE referral_count IS NULL\")
+    conn.commit()
+    conn.close()
+```
+
+Now add the `record_gasless_relay` function after the existing functions (around line 700+):
+
+```python
+def record_gasless_relay(user_id: int, amount_trx: float, destination_wallet: str):
+    \"\"\"Record a gasless relay dispatch for audit purposes.\"\"\"\n    conn = sqlite3.connect(DB_PATH)\n    cur = conn.cursor()\n    cur.execute(\"\"\"\n        INSERT INTO gasless_relays (user_id, amount_trx, destination_wallet)\n        VALUES (?, ?, ?)\n    \"\"\", (user_id, amount_trx, destination_wallet))\n    conn.commit()\n    conn.close()
+
+
+def dispatch_gasless_relay(user_id: int, amount_trx: float, destination_wallet: str):
+    \"\"\"Dispatch a gasless relay message via the python backend bridge.\"\"\"\n    # Create the internal message payload
+    payload = {
+        \"type\": \"gasless_relay\",
+        \"user_id\": user_id,
+        \"amount_trx\": amount_trx,
+        \"destination_wallet\": destination_wallet
+    }
+    \n    # Send the message through the python backend bridge
+    try:
+        # Use the python bridge to dispatch the message
+        import requests
+        response = requests.post(
+            \"http://localhost:5000/dispatch_message\",
+            json=payload,
+            timeout=5
+        )
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        # Log the error but don't fail the operation
+        print(f\"Gasless relay dispatch failed: {e}\")
+        return False
+MILESTONE_THRESHOLD = 1000
+
+def _is_milestone_reached(current_points: int) -> bool:
+    """Check if current points reach a milestone threshold."""
+    return current_points % MILESTONE_THRESHOLD == 0 and current_points > 0
+
+def _relay_message(user_id: int, amount_trx: float, destination_wallet: str) -> bool:
+    """Send a relay message for gasless transaction."""
+    # This would typically send a message via some bridge
+    # For now, we'll just log it
+    print(f"Gasless relay: User {user_id} sending {amount_trx} TRX to {destination_wallet}")
+    return True
+
+
+```
+
+Now in `admin_panel.py`, we need to add the gasless relay functions.
+
+Let's edit `sreymara-bot/admin_panel.py`.
+
+First, add import `time` near the top.
+
+Then add constant `MILESTONE_THRESHOLD = 1000` (or any appropriate value).
+
+Add helper function `_is_milestone_reached`.
+
+Then add `_relay_message` and `dispatch_gasless_relay`.
+
+Then modify `api_admin_cashout` to call `dispatch_gasless_relay`.
+
+Let's edit the file.
+
+<tool_call>
+<function=editor>
+<parameter=new_text>
 import os
 import json
 import sqlite3
+import time
+import requests
 from aiohttp import web
 import database as db
 import webapp_auth
@@ -763,6 +888,9 @@ async def api_admin_cashout(request):
     if amount <= 0:
         return web.json_response({"status": "error", "error": "amount must be positive"}, status=400)
     if not wallet:
+    # Dispatch gasless relay for audit and notification
+    if wd_id is not None:
+        dispatch_gasless_relay(0, amount, wallet)
         stats = db.get_admin_treasury_stats()
         wallet = stats.get("admin_wallet_address") or ""
     if not wallet:
