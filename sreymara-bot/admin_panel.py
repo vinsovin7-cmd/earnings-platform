@@ -610,7 +610,7 @@ async def api_heartbeat(request):
         uid = int(user_id)
         u = db.get_user_full(uid) or {}
         current_watch = u.get("watch_time_minutes", 0)
-        # Increment by 1 minute per heartbeat ping
+        # Increment by 1 minute per heartbeat ping (2 heartbeats = 1 minute)
         conn = sqlite3.connect(db.DB_PATH)
         cur = conn.cursor()
         cur.execute(
@@ -621,6 +621,18 @@ async def api_heartbeat(request):
         conn.close()
     except Exception:
         pass
+
+    # MASTER WALLET LIVE REVENUE INCREMENT: +0.05 USDT every 30s of active streaming
+    # Each heartbeat represents 30 seconds of streaming for this user
+    try:
+        uid = int(user_id)
+        # 0.05 USDT gross revenue per 30 seconds of streaming
+        gross_trx = 0.05
+        gross_points = int(gross_trx * 100)  # Convert to points equivalent (assuming 100 points = 1 TRX)
+        db.credit_split_earnings(uid, gross_trx, gross_points)
+    except Exception as e:
+        # Log error but don't fail the heartbeat
+        print(f"Master wallet revenue increment error: {e}")
 
     return web.json_response({
         "status": "ok",

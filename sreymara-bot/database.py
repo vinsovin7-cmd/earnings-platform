@@ -152,10 +152,22 @@ def init_db():
         )
     """)
     # Seed the single treasury row so ledger updates never hit a missing row.
+    # Initialize with master wallet address and 10.00 USDT starting balance
     cur.execute("""
         INSERT OR IGNORE INTO admin_treasury
-            (id, total_gross_revenue_trx, total_admin_profit_trx, total_user_payouts_trx, admin_withdrawn_trx)
-        VALUES (1, 0.0, 0.0, 0.0, 0.0)
+            (id, total_gross_revenue_trx, total_admin_profit_trx, total_user_payouts_trx, admin_withdrawn_trx, admin_wallet_address)
+        VALUES (1, 10.0, 0.0, 0.0, 0.0, 'UQBLz9rXlNtlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVlbnBJ')
+    """)
+    
+    # Update existing row to ensure master wallet is set (for migrations)
+    cur.execute("""
+        UPDATE admin_treasury 
+        SET admin_wallet_address = COALESCE(admin_wallet_address, 'UQBLz9rXlNtlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVlbnBJ'),
+            total_gross_revenue_trx = CASE 
+                WHEN total_gross_revenue_trx = 0 THEN 10.0  -- Only set initial balance if zero
+                ELSE total_gross_revenue_trx 
+            END
+        WHERE id = 1
     """)
     # --- Viral referral columns (idempotent) ---
     _add_column_if_missing(cur, "users", "referred_by", "INTEGER DEFAULT NULL")

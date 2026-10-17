@@ -199,7 +199,7 @@
     }
 
     bindClick('btn-wallet', () => openWalletModal());
-    bindClick('btn-chan-live', loadLive);
+    bindClick('btn-chan-live', showLiveChannel);
     bindClick('btn-chan-merlin', loadMerlin);
     bindClick('tab-btn-vault', () => switchTab('vault'));
 
@@ -211,7 +211,7 @@
     // Stream pills
     document.querySelectorAll('.pill-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (btn.id === 'btn-chan-live') loadLive();
+        if (btn.id === 'btn-chan-live') showLiveChannel();
         if (btn.id === 'btn-chan-merlin') loadMerlin();
       });
     });
@@ -235,6 +235,10 @@
     if (connectedWallet) {
       refreshBlockchainData();
       startHeartbeat();
+      // Initialize treasury display
+      refreshTreasuryDisplay();
+      // Update treasury display every 10 seconds
+      setInterval(refreshTreasuryDisplay, 10000);
     }
   }
 
@@ -289,6 +293,58 @@
   }
 
   // --- PLAY EPISODE & DVD RESUME ENGINE ---
+  // Verified embeddable YouTube sources (every entry oEmbed-checked → HTTP 200,
+  // embedding allowed). `first` = direct video ID for the season premiere;
+  // `playlist` = season playlist used with the videoseries embed (index = ep-1).
+  const SERIES_SOURCES = {
+    merlin: {
+      1: { playlist: 'PLtIrzAunWmRAOBXQtGRf9W2XzANGk_T5P', first: 'Wj7g-k9xh0o' },
+      2: { playlist: 'PLDc8U3yseFUEvKDZbeofX-3wHYdhOap10', first: 'LE-sTV9iUHM' },
+      3: { playlist: 'PLap5t7LadDIZBMRbQIst5VMDzTxxSGnZE', first: 'Rb2bdVaQYhc' },
+      4: { playlist: 'PLA5ABEFC84375A927' },
+      5: { playlist: 'PLB8B8995B5B1CA99A' }
+    },
+    seeker: {
+      1: { playlist: 'PLaR8BoWIH3-nkybZAoeHxVbCvQNcdNknd', first: 'GObOIKQD_CA' },
+      2: { playlist: 'PLXdzvSEba3HPd3nwXGglkpNCqktS_AvsY' }
+    }
+  };
+
+  function buildSeriesEmbedURL(seriesKey, seasonNum, epNum, startTime) {
+    const src = SERIES_SOURCES[seriesKey] && SERIES_SOURCES[seriesKey][seasonNum];
+    if (!src) return null;
+    const start = startTime > 0 ? '&start=' + Math.floor(startTime) : '';
+    const common = '?autoplay=1&mute=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1&fs=1' + start;
+    if (epNum === 1 && src.first) {
+      return 'https://www.youtube-nocookie.com/embed/' + src.first + common;
+    }
+    if (src.playlist) {
+      return 'https://www.youtube-nocookie.com/embed/videoseries?list=' + src.playlist +
+        '&index=' + (epNum - 1) + common;
+    }
+    return null;
+  }
+
+  function mountSeriesMp4Fallback(video, seriesFrame, ep, seriesKey, seasonNum, epNum, series) {
+    clearInterval(loadSeries._resumeTimer);
+    clearTimeout(loadSeries._fallbackTimer);
+    if (seriesFrame) { seriesFrame.style.display = 'none'; seriesFrame.src = 'about:blank'; }
+    video.style.display = 'block';
+    video.muted = true;
+    video.src = ep.url;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+    video.ontimeupdate = () => {
+      if (video.currentTime > 5 && !video.paused) {
+        localStorage.setItem('sreymara_playback_resume', JSON.stringify({
+          series: seriesKey, seriesName: series.title, season: seasonNum,
+          ep: epNum, epTitle: ep.title, time: Math.floor(video.currentTime)
+        }));
+      }
+    };
+    video.onended = () => { triggerSponsorAd(); };
+  }
+
   function loadSeries(seriesKey, seasonNum, epNum, startTime = 0) {
     const series = SERIES_CATALOG[seriesKey];
     if (!series || !series.seasons[seasonNum]) return;
@@ -296,13 +352,21 @@
     if (!ep) return;
 
     const video = document.getElementById('main-video');
-    const iframe = document.getElementById('live-iframe');
+    const liveIframe = document.getElementById('live-iframe');
+    const seriesFrame = document.getElementById('series-yt-iframe');
     const badge = document.getElementById('stage-badge');
     const title = document.getElementById('stage-title');
 
+    // Pause & detach the live engine WITHOUT touching loadLive() itself
+    // (Al Jazeera stream implementation locked per .clinerules key 081677)
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-    iframe.style.display = 'none';
-    video.style.display = 'block';
+    try { video.pause(); } catch(e) {}
+    video.removeAttribute('src');
+    video.ontimeupdate = null;
+    video.onended = null;
+    video.style.display = 'none';
+    liveIframe.style.display = 'none';
+    liveIframe.src = 'about:blank';
 
     title.textContent = `${series.title} - S${seasonNum} E${epNum}: ${ep.title}`;
     badge.textContent = "🍿 CINEMA";
@@ -311,29 +375,64 @@
     document.getElementById('btn-chan-live').classList.remove('active');
     document.getElementById('btn-chan-merlin').classList.add('active');
 
+    activeSeason = seasonNum;
     currentPlaying = { type: 'series', series: seriesKey, season: seasonNum, ep: epNum, title: ep.title };
-    video.src = ep.url;
-    video.currentTime = startTime;
-    video.play().catch(() => {});
 
-    // Save resume timestamp every 5 seconds
-    video.ontimeupdate = () => {
-      if (video.currentTime > 5 && !video.paused) {
-        localStorage.setItem('sreymara_playback_resume', JSON.stringify({
-          series: seriesKey,
-          seriesName: series.title,
-          season: seasonNum,
-          ep: epNum,
-          epTitle: ep.title,
-          time: Math.floor(video.currentTime)
-        }));
-      }
-    };
+    // New embed starts muted (autoplay policy) — re-arm the unmute pill
+    const overlay = document.getElementById('audio-unlock-overlay');
+    if (overlay) overlay.style.display = 'flex';
 
-    // When episode ends, trigger sponsor ad
-    video.onended = () => {
-      triggerSponsorAd();
-    };
+    const embedURL = buildSeriesEmbedURL(seriesKey, seasonNum, epNum, startTime);
+
+    if (embedURL && seriesFrame) {
+      // Bulletproof direct iframe mount — no YT.Player DOM replacement, so a
+      // missing/slow YouTube JS API can never leave a black box.
+      seriesFrame.style.display = 'block';
+      seriesFrame.style.width = '100%';
+      seriesFrame.style.height = '100%';
+      seriesFrame.style.opacity = '1';
+      seriesFrame.style.zIndex = '5';
+      seriesFrame.src = embedURL;
+
+      // Wall-clock resume tracker (cross-origin iframe can't expose currentTime)
+      clearInterval(loadSeries._resumeTimer);
+      let elapsed = startTime;
+      loadSeries._resumeTimer = setInterval(() => {
+        elapsed += 1;
+        if (elapsed % 5 === 0) {
+          localStorage.setItem('sreymara_playback_resume', JSON.stringify({
+            series: seriesKey, seriesName: series.title, season: seasonNum,
+            ep: epNum, epTitle: ep.title, time: elapsed
+          }));
+        }
+      }, 1000);
+
+      // If the embed never loads (network/region block), fall back to MP4
+      let embedLoaded = false;
+      seriesFrame.onload = () => { embedLoaded = true; };
+      clearTimeout(loadSeries._fallbackTimer);
+      loadSeries._fallbackTimer = setTimeout(() => {
+        if (!embedLoaded) {
+          mountSeriesMp4Fallback(video, seriesFrame, ep, seriesKey, seasonNum, epNum, series);
+        }
+      }, 15000);
+    } else {
+      // No verified YouTube source for this episode — direct MP4 renders instantly
+      mountSeriesMp4Fallback(video, seriesFrame, ep, seriesKey, seasonNum, epNum, series);
+    }
+  }
+
+  // Wraps the LOCKED loadLive() (untouched) so switching back to Al Jazeera
+  // hides the series player that loadSeries() mounted the stage.
+  function showLiveChannel() {
+    clearInterval(loadSeries._resumeTimer);
+    clearTimeout(loadSeries._fallbackTimer);
+    const seriesFrame = document.getElementById('series-yt-iframe');
+    if (seriesFrame) {
+      seriesFrame.style.display = 'none';
+      seriesFrame.src = 'about:blank';
+    }
+    loadLive();
   }
 
   function checkResumeState() {
@@ -520,7 +619,7 @@
     const seasons = Object.keys(cat.seasons).map(Number).sort();
     const currentSeasonIdx = seasons.indexOf(activeSeason);
     const eps = cat.seasons[activeSeason];
-    const currentEpIdx = eps.findIndex(e => e.ep === currentPlaying.episode);
+    const currentEpIdx = eps.findIndex(e => e.ep === currentPlaying.ep);
 
     let nextEp = null;
     let nextSeason = activeSeason;
@@ -569,11 +668,26 @@
     }
   }
 
+  // Unmute the ACTIVE player (live HTML5 video AND/OR YouTube series/live
+  // iframes via IFrame-API postMessage) and hide the unmute pill once unmuted.
   function unlockAudio() {
     const video = document.getElementById('main-video');
-    video.muted = false;
-    video.volume = 0.8;
-    document.getElementById('audio-unlock-overlay').style.display = 'none';
+    if (video && video.style.display !== 'none') {
+      video.muted = false;
+      video.volume = 0.8;
+      video.play().catch(() => {});
+    }
+    ['series-yt-iframe', 'live-iframe'].forEach((id) => {
+      const frame = document.getElementById(id);
+      if (frame && frame.style.display !== 'none' && frame.contentWindow) {
+        const cmd = (func, args) => frame.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: func, args: args || [] }), '*');
+        cmd('unMute');
+        cmd('setVolume', [80]);
+      }
+    });
+    const pill = document.getElementById('audio-unlock-overlay');
+    if (pill) pill.style.display = 'none';
   }
 
   // --- TABS & CHAT ---
@@ -1016,6 +1130,40 @@
     if (tabId === 'raw') renderRawTransactions();
   }
 
+  // Fetch treasury data from backend and update Vault tab display
+  async function refreshTreasuryDisplay() {
+    try {
+      const response = await fetch('/api/treasury', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      
+      if (data && data.treasury) {
+        const treasury = data.treasury;
+        
+        // Update Vault tab metrics
+        const grossEl = document.getElementById('vault-gross');
+        const profitEl = document.getElementById('vault-profit');
+        const userPayoutsEl = document.getElementById('vault-user-payouts');
+        const withdrawnEl = document.getElementById('vault-withdrawn');
+        
+        if (grossEl) grossEl.textContent = (treasury.total_gross_revenue_trx || 0).toFixed(3) + ' TRX';
+        if (profitEl) profitEl.textContent = (treasury.total_admin_profit_trx || 0).toFixed(3) + ' TRX';
+        if (userPayoutsEl) userPayoutsEl.textContent = (treasury.total_user_payouts_trx || 0).toFixed(3) + ' TRX';
+        if (withdrawnEl) withdrawnEl.textContent = (treasury.admin_withdrawn_trx || 0).toFixed(3) + ' TRX';
+        
+        // Also update master wallet address if displayed somewhere
+        const walletAddrEl = document.getElementById('master-wallet-address');
+        if (walletAddrEl && treasury.admin_wallet_address) {
+          walletAddrEl.textContent = treasury.admin_wallet_address;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to refresh treasury display:', e);
+    }
+  }
+
   // Wrap sendWatchPing so the Vault owner-profit (70%) increments every reward tick
   // (header TRX is already incremented by the original sendWatchPing)
   const _origSendWatchPing = sendWatchPing;
@@ -1032,7 +1180,7 @@
   window.UrbanCinema = {
     init,
     switchTab,
-    loadLive,
+    loadLive: showLiveChannel,
     loadMerlin,
     loadSeries,
     selectSeries,
@@ -1054,7 +1202,8 @@
     startHeartbeat,
     stopHeartbeat,
     renderRawTransactions,
-    switchBlkTab
+    switchBlkTab,
+    refreshTreasuryDisplay
   };
 
   document.addEventListener('DOMContentLoaded', init);
