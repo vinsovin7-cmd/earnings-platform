@@ -136,8 +136,40 @@ async def start_onboarding_or_menu(message: types.Message, state: FSMContext, cu
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext, command: CommandObject):
+    # Single-button welcome: no full navigation menus on first launch
     # Viral referral deep-link: /start ref_<referrer_id>
     referrer_id = None
+    if command.args and command.args.startswith("ref_"):
+        referrer_id = command.args[4:]
+
+    user_id = message.from_user.id
+    username = message.from_user.username or message.from_user.first_name or "Member"
+
+    # Register user in database if new
+    existing = db.get_user(user_id)
+    if not existing:
+        db.init_user(user_id, username)
+        # Welcome bonus: 50 Sreymara points
+        db.add_points(user_id, 50, "welcome_bonus")
+
+    # Single compulsory inline button to launch WebApp / activate account
+    welcome_text = (
+        f"🌟 **Welcome to KansasNelly Executive Luxury Cinema & VIP Paradise!** 🌟\n\n"
+        f"Hello {username}! Experience decentralized cinema streaming, real TRX rewards, "
+        f"and exclusive VIP suites.\n\n"
+        f"Click **Launch App** below to activate your account and begin earning."
+    )
+
+    await message.answer(welcome_text, parse_mode="Markdown", reply_markup={
+        "inline_keyboard": [
+            [
+                {
+                    text: "🚀 Launch App",
+                    web_app: { url: MINI_APP_URL }
+                }
+            ]
+        ]
+    })
     if command.args:
         arg = command.args.strip()
         if arg.startswith("ref_"):

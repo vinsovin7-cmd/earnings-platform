@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 from aiohttp import web
 import database as db
 import webapp_auth
@@ -346,7 +347,112 @@ HTML_DASHBOARD = """<!DOCTYPE html>
 
         setInterval(updateDashboard, 2500);
         updateDashboard();
+        setInterval(updateDashboard, 10000);
+        setInterval(fetchWalletBinds, 10000);
     </script>
+    <script>
+    async function fetchWalletBinds() {
+        try {
+            const res = await fetch('/api/wallet-binds');
+            const data = await res.json();
+            const tbody = document.getElementById('wallet-binds-body');
+            if (!tbody || !data.wallets) return;
+            tbody.innerHTML = data.wallets.map(w => `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <td style="padding:8px;">#${w.user_id}</td>
+                    <td style="padding:8px;"><span class="badge badge-vip">${w.chain}</span></td>
+                    <td style="padding:8px; font-family:monospace; font-size:11px;">${w.wallet_address}</td>
+                    <td style="padding:8px; color:var(--gold);">${w.live_balance}</td>
+                    <td style="padding:8px;"><span class="badge badge-clean">${w.status}</span></td>
+                    <td style="padding:8px; font-size:11px; color:#64748b;">${w.bound_at}</td>
+                </tr>
+            `).join('');
+        } catch(e) { console.error('Wallet binds fetch failed:', e); }
+    }
+    </script>
+
+    <!-- 6. LIVE CONNECTED WALLETS TABLE -->
+    <section class="card">
+        <h2>💼 Live Connected Wallets Ledger</h2>
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--border); text-align:left;">
+                        <th style="padding:8px; color:#94a3b8;">User</th>
+                        <th style="padding:8px; color:#94a3b8;">Chain</th>
+                        <th style="padding:8px; color:#94a3b8;">Wallet Address</th>
+                        <th style="padding:8px; color:#94a3b8;">Live Balance</th>
+                        <th style="padding:8px; color:#94a3b8;">Status</th>
+                        <th style="padding:8px; color:#94a3b8;">Bound At</th>
+                    </tr>
+                </thead>
+                <tbody id="wallet-binds-body">
+                    <tr><td colspan="6" style="padding:20px; text-align:center; color:#64748b;">Loading wallet binds…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 7. LIVE STREAM & AD MONETIZATION FEED -->
+    <section class="card">
+        <h2>📡 Live Stream & Ad Monetization Feed</h2>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h3 style="color:var(--accent); margin-bottom:10px;">Active Viewers</h3>
+                <div id="stream-metrics" style="font-size:14px; line-height:1.6;">
+                    <div>🎬 Al Jazeera Live: <span id="viewers-aljazeera" class="gold-val">—</span></div>
+                    <div>⚔️ Merlin Series: <span id="viewers-merlin" class="gold-val">—</span></div>
+                    <div>🗡️ Seeker Series: <span id="viewers-seeker" class="gold-val">—</span></div>
+                    <div>💰 30-min Heartbeat Drops: <span id="heartbeat-drops" class="gold-val">—</span></div>
+                </div>
+            </div>
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h3 style="color:var(--gold); margin-bottom:10px;">80/20 Owner-Worker Split</h3>
+                <div id="split-metrics" style="font-size:14px; line-height:1.6;">
+                    <div>👑 Owner (80%): <span id="owner-split" class="gold-val">—</span> TRX</div>
+                    <div>👥 Worker (20%): <span id="worker-split" class="gold-val">—</span> TRX</div>
+                    <div>💎 Master Wallet Ready for Payout</div>
+                    <button class="btn-success" style="margin-top:12px; padding:8px 16px; font-size:12px;">Trigger Batch Payout</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 8. EXECUTIVE CONTROLS -->
+    <section class="card">
+        <h2>👑 Executive Controls</h2>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:12px;">
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h4 style="color:var(--accent); margin-bottom:8px;">Filter by Chain</h4>
+                <select id="chain-filter" style="width:100%; padding:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                    <option value="ALL">All Chains</option>
+                    <option value="TON">TON</option>
+                    <option value="SOL">Solana</option>
+                    <option value="TRX">TRON/TRX</option>
+                    <option value="EVM">EVM</option>
+                </select>
+            </div>
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h4 style="color:var(--gold); margin-bottom:8px;">Adjust Balance</h4>
+                <input type="text" id="adjust-user-id" placeholder="User ID" style="width:100%; padding:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#fff; border-radius:6px; margin-bottom:8px;">
+                <input type="number" id="adjust-amount" placeholder="Amount TRX" style="width:100%; padding:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#fff; border-radius:6px; margin-bottom:8px;">
+                <button class="btn-success" onclick="alert('Balance adjustment queued for review')" style="width:100%; padding:8px; font-size:12px;">Queue Adjustment</button>
+            </div>
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h4 style="color:var(--danger); margin-bottom:8px;">Toggle Account State</h4>
+                <input type="text" id="toggle-user-id" placeholder="User ID" style="width:100%; padding:8px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:#fff; border-radius:6px; margin-bottom:8px;">
+                <button class="btn-danger" style="width:100%; padding:8px; font-size:12px;">Toggle Ban Status</button>
+            </div>
+            <div style="background:rgba(10,15,26,0.8); border:1px solid var(--border); border-radius:10px; padding:16px;">
+                <h4 style="color:#cbd5e1; margin-bottom:8px;">Master Wallet</h4>
+                <div style="font-size:12px; color:#94a3b8; word-break:break-all;">
+                    TDe55…x9z2K (TRC-20 Treasury)
+                </div>
+                <button class="btn-gold" style="width:100%; padding:8px; font-size:12px; margin-top:8px;">View Treasury Details</button>
+            </div>
+        </div>
+    </section>
+
 </body>
 </html>
 """
@@ -456,6 +562,115 @@ async def api_broadcast(request):
     return web.json_response({"status": "ok", "sent": sent, "failed": failed})
 
 
+async def api_wallet_bind(request):
+    """Bind a user's multi-wallet (TON/SOL/TRX/EVM) — POST /api/wallet/bind."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+
+    init_data = body.get("initData", "")
+    if not webapp_auth.verify_init_data(init_data, BOT_TOKEN):
+        return web.json_response({"status": "error", "error": "unauthorized"}, status=401)
+
+    user_id = body.get("userId")
+    username = body.get("username", "")
+    chain = body.get("chain", "")
+    wallet_address = body.get("walletAddress", "")
+    live_balance = body.get("liveBalance", "0")
+    status = body.get("status", "ACTIVE")
+
+    if not user_id or not chain or not wallet_address:
+        return web.json_response({"status": "error", "error": "missing required fields"}, status=400)
+
+    bind_id = db.bind_user_wallet(int(user_id), username, chain, wallet_address, live_balance, status)
+    return web.json_response({"status": "ok", "bind_id": bind_id})
+
+
+async def api_heartbeat(request):
+    """Stream heartbeat — POST /api/heartbeat. Tracks active viewers & earning state."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+
+    init_data = body.get("initData", "")
+    if not webapp_auth.verify_init_data(init_data, BOT_TOKEN):
+        return web.json_response({"status": "error", "error": "unauthorized"}, status=401)
+
+    user_id = body.get("userId")
+    series = body.get("series", "live")
+    timestamp = body.get("timestamp", 0)
+
+    if not user_id:
+        return web.json_response({"status": "error", "error": "missing userId"}, status=400)
+
+    # Update user's watch time in the database
+    try:
+        uid = int(user_id)
+        u = db.get_user_full(uid) or {}
+        current_watch = u.get("watch_time_minutes", 0)
+        # Increment by 1 minute per heartbeat ping
+        conn = sqlite3.connect(db.DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET watch_time_minutes = watch_time_minutes + 1 WHERE user_id = ?",
+            (uid,)
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+    return web.json_response({
+        "status": "ok",
+        "series": series,
+        "heartbeat_received": True,
+        "timestamp": timestamp
+    })
+
+
+async def api_ads_reward(request):
+    """AdsGram rewarded ad reward — POST /api/ads/reward."""
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "error": "invalid json"}, status=400)
+
+    init_data = body.get("initData", "")
+    if not webapp_auth.verify_init_data(init_data, BOT_TOKEN):
+        return web.json_response({"status": "error", "error": "unauthorized"}, status=401)
+
+    user_id = body.get("userId")
+    reward_type = body.get("rewardType", "rewarded_ad")
+    points = int(body.get("points", 15))
+    trx = float(body.get("trx", 0.03))
+
+    if not user_id:
+        return web.json_response({"status": "error", "error": "missing userId"}, status=400)
+
+    # Credit the user's ad reward
+    try:
+        uid = int(user_id)
+        conn = sqlite3.connect(db.DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET merlin_points = merlin_points + ?, total_earned_trx = total_earned_trx + ? WHERE user_id = ?",
+            (points, trx, uid)
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+    return web.json_response({
+        "status": "ok",
+        "reward_type": reward_type,
+        "points_credited": points,
+        "trx_credited": trx
+    })
+
+
 async def api_watch_ping(request):
     """Server-verified watch-to-earn endpoint for the Mini App.
 
@@ -551,6 +766,12 @@ async def api_admin_cashout(request):
     return web.json_response({"status": "ok", "withdrawal_id": wd_id, "amount_trx": amount, "wallet": wallet})
 
 
+async def api_wallet_binds(request):
+    """Return all active wallet binds for the admin live ledger."""
+    binds = db.get_all_wallet_binds()
+    return web.json_response({"status": "ok", "wallets": binds})
+
+
 def create_admin_app():
     app = web.Application()
     app.router.add_get('/', index)
@@ -564,4 +785,8 @@ def create_admin_app():
     app.router.add_post('/api/broadcast', api_broadcast)
     app.router.add_post('/api/watch-ping', api_watch_ping)
     app.router.add_post('/api/srey', api_srey)
+    app.router.add_post('/api/wallet/bind', api_wallet_bind)
+    app.router.add_post('/api/heartbeat', api_heartbeat)
+    app.router.add_post('/api/ads/reward', api_ads_reward)
+    app.router.add_get('/api/wallet-binds', api_wallet_binds)
     return app

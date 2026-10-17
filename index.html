@@ -142,18 +142,8 @@
       }
       
       if(location.hash === '#cinema') location.replace('/cinema');
-      // Load Electron update indicator if running in Electron
-      if(typeof window !== 'undefined' && window.electronAPI) {
-        import('solid-js/web').then(({render}) => {
-          import('@components/electronUpdateIndicator').then(({default: ElectronUpdateIndicator}) => {
-            const container = document.getElementById('electron-update-indicator-container');
-            if(container) {
-              render(() => ElectronUpdateIndicator(), container);
-            }
-          });
-        });
-      }
     </script>
     <script src="src/index.ts" type="module"></script>
+    <!-- Electron update indicator: handled in src/index.ts via vite alias solid-js/web -->
   </body>
 </html>

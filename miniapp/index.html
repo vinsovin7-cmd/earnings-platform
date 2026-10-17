@@ -7,6 +7,37 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.2/dist/hls.min.js"></script>
   <script src="https://unpkg.com/@tonconnect/sdk@0.7.0/dist/tonconnect.umd.js"></script>
+  <script src="https://sdk.tonconnect.io/js/ui/v2.0.3/tonconnect-ui.min.js"></script>
+  <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+<style>
+/* Blockchain Inspector Overrides */
+.blockchain-card { padding: 16px; margin-top: 12px; }
+.blockchain-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-text { font-weight: 700; color: var(--emerald); font-size: 12px; }
+.contract-type { margin-left: auto; font-size: 10px; background: rgba(0,230,118,0.15); color: var(--emerald); padding: 2px 8px; border-radius: 99px; border: 1px solid var(--emerald); }
+.blockchain-address { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 11px; }
+.addr-label { color: var(--muted); }
+.addr-value { font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explorer-link { font-size: 10px; color: var(--cyan); text-decoration: underline; padding: 2px 6px; border: 1px solid var(--cyan); border-radius: 4px; white-space: nowrap; }
+.blockchain-balances { display: flex; gap: 12px; margin-bottom: 10px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid var(--border); }
+.balance-item { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.bal-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.bal-value { font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--emerald); }
+.blockchain-tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+.blk-tab { flex: 1; padding: 6px; background: transparent; border: none; color: var(--muted); font-size: 11px; cursor: pointer; border-bottom: 2px solid transparent; }
+.blk-tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 800; }
+.blockchain-tab-content { display: none; }
+.blockchain-tab-content.active { display: block; }
+.tx-list { display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+.tx-item { display: flex; justify-content: space-between; padding: 6px 8px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border); }
+.tx-time { color: var(--muted); }
+.tx-type { color: var(--cyan); flex: 1; margin: 0 8px; }
+.tx-amount { color: var(--emerald); font-weight: 800; font-variant-numeric: tabular-nums; }
+.raw-json { background: #000; padding: 10px; border-radius: 6px; font-size: 10px; overflow: auto; color: #0f0; font-family: monospace; }
+.token-list { font-size: 11px; color: var(--muted); padding: 10px; }
+</style>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,8 +62,13 @@
           <span>✨ <strong id="user-points">50</strong> PTS</span>
           <span>💎 <strong id="user-trx">0.000</strong> TRX</span>
         </div>
+        <div id="wallet-badge" class="wallet-badge" style="display:none;">
+          <span id="wallet-chain-icon">💎</span>
+          <span id="wallet-address">0x1234…5678</span>
+          <span id="wallet-balance">0.0000</span>
+        </div>
       </div>
-      <button id="btn-ton" class="btn-ton" onclick="window.UrbanCinema.connectTon()">TON Wallet</button>
+      <button id="btn-wallet" class="btn-ton" onclick="window.UrbanCinema.openWalletModal()">🔗 Connect Wallet</button>
     </header>
 
     <!-- DVD Resume Machine Banner -->
@@ -126,7 +162,7 @@
             <span class="ai-avatar">✨</span>
             <div>
               <h4>Srey AI • Luxury Concierge</h4>
-              <p>Powered by Google Gemini 1.5 Flash • Dating advice, translations & platform guidance</p>
+              <p>Powered by Google Gemini 1.5 Flash • Dating advice, translations &amp; platform guidance</p>
             </div>
           </div>
           <div class="chat-log" id="chat-log">
@@ -148,6 +184,51 @@
 
       <!-- 5. 👑 OWNER VAULT (70% SHARE) -->
       <section id="panel-vault" class="panel-content">
+        <!-- LIVE BLOCKCHAIN WALLET INSPECTOR -->
+        <div class="blockchain-card glass">
+          <div class="blockchain-header">
+            <span class="status-dot" id="blk-status-badge" style="background:#00e676;"></span>
+            <span class="status-text" id="blk-status-text">● Active</span>
+            <span class="contract-type" id="blk-contract-type">wallet_v5r1</span>
+          </div>
+          <div class="blockchain-address">
+            <span class="addr-label">Address:</span>
+            <span class="addr-value" id="blk-addr-value">Not connected</span>
+            <a class="explorer-link" id="blk-explorer-link" href="https://tonscan.org" target="_blank" rel="noopener">tonscan.org</a>
+          </div>
+          <div class="blockchain-balances">
+            <div class="balance-item">
+              <span class="bal-label">TON</span>
+              <span class="bal-value" id="blk-balance-TON">0.0000</span>
+            </div>
+            <div class="balance-item">
+              <span class="bal-label">TRX</span>
+              <span class="bal-value" id="blk-balance-TRX">0.0000</span>
+            </div>
+            <div class="balance-item">
+              <span class="bal-label">USDT</span>
+              <span class="bal-value" id="blk-balance-USDT">0.0000</span>
+            </div>
+          </div>
+          <div class="blockchain-tabs">
+            <button class="blk-tab active" id="blk-tab-history" onclick="window.UrbanCinema.switchBlkTab('history')">History</button>
+            <button class="blk-tab" id="blk-tab-raw" onclick="window.UrbanCinema.switchBlkTab('raw')">Raw Transactions</button>
+            <button class="blk-tab" id="blk-tab-tokens" onclick="window.UrbanCinema.switchBlkTab('tokens')">Tokens</button>
+          </div>
+          <div class="blockchain-tab-content active" id="blk-content-history">
+            <div class="tx-list" id="blk-tx-list">
+              <div class="tx-item"><span class="tx-time">—</span><span class="tx-type">Connect a wallet to sync live on-chain data</span><span class="tx-amount"></span></div>
+            </div>
+          </div>
+          <div class="blockchain-tab-content" id="blk-content-raw">
+            <pre class="raw-json" id="blk-raw-json">No raw transactions yet. Connect a wallet to sync.</pre>
+          </div>
+          <div class="blockchain-tab-content" id="blk-content-tokens">
+            <div id="blk-token-list"><div class="token-list">No token balances found.</div></div>
+          </div>
+          <button class="btn-gold" style="width:100%;margin-top:10px;" onclick="window.UrbanCinema.refreshBlockchainData()">↻ Refresh On-Chain Data</button>
+        </div>
+
         <div class="vault-card glass">
           <div class="vault-header">
             <span class="vault-icon">🏛️</span>
@@ -195,6 +276,22 @@
         <p>Rewarding your wallet in <span id="ad-countdown" class="gold-text">15</span> seconds...</p>
         <div class="ad-progress"><div id="ad-bar" class="ad-bar-fill"></div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Wallet Connect Modal -->
+  <div id="wallet-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-card glass" style="max-width:380px;">
+      <span class="modal-badge">🔗 Multi-Wallet Connect</span>
+      <h3>Bind Your Wallet</h3>
+      <p>Connect any wallet to receive TRX earnings &amp; rewards.</p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
+        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('TON')">💎 TON Connect (Tonkeeper / MyTonWallet)</button>
+        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('SOL')">☀️ Solana (Phantom / Solflare)</button>
+        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('TRX')">🔷 TRON / TRX (TronLink / Manual)</button>
+        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('EVM')">🦊 EVM (MetaMask / TrustWallet)</button>
+      </div>
+      <button class="btn-cancel" onclick="window.UrbanCinema.closeWalletModal()">Cancel</button>
     </div>
   </div>
 

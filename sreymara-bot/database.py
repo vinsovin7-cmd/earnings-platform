@@ -31,6 +31,13 @@ def _add_column_if_missing(cur, table, column, col_def):
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    cur.execute(_WALLET_BINDS_TABLE)
+    conn.commit()
+    conn.close()
+    init_wallet_binds_table()
+
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -744,6 +751,77 @@ def record_admin_cashout(amount_trx, destination_wallet):
     conn.commit()
     conn.close()
     return wd_id
+
+
+# --- Multi-Wallet Bind Tracking ---
+_WALLET_BINDS_TABLE = """
+    CREATE TABLE IF NOT EXISTS wallet_binds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        username TEXT DEFAULT '',
+        chain TEXT NOT NULL,
+        wallet_address TEXT NOT NULL,
+        live_balance TEXT DEFAULT '0',
+        status TEXT DEFAULT 'ACTIVE',
+        bound_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+"""
+
+
+def init_wallet_binds_table():
+    """Ensure wallet_binds table exists (idempotent migration)."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(_WALLET_BINDS_TABLE)
+    conn.commit()
+    conn.close()
+
+
+def bind_user_wallet(user_id, username, chain, wallet_address, live_balance, status='ACTIVE'):
+    """Upsert a user's bound wallet. Returns the bind row id."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    # Deactivate any existing bind for this user+chain
+    cur.execute(
+        "UPDATE wallet_binds SET status = 'INACTIVE' WHERE user_id = ? AND chain = ?",
+        (user_id, chain)
+    )
+    cur.execute(
+        """INSERT INTO wallet_binds (user_id, username, chain, wallet_address, live_balance, status, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+        (user_id, username, chain, wallet_address, live_balance, status)
+    )
+    bind_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return bind_id
+
+
+def get_all_wallet_binds():
+    """Return all active wallet binds with latest info (for admin live ledger)."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        """SELECT id, user_id, username, chain, wallet_address, live_balance, status, bound_at, updated_at
+           FROM wallet_binds WHERE status = 'ACTIVE' ORDER BY bound_at DESC"""
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [
+        {
+            "id": r[0],
+            "user_id": r[1],
+            "username": r[2],
+            "chain": r[3],
+            "wallet_address": r[4],
+            "live_balance": r[5],
+            "status": r[6],
+            "bound_at": r[7],
+            "updated_at": r[8],
+        }
+        for r in rows
+    ]
 
 
 def get_admin_withdrawals(limit=20):
