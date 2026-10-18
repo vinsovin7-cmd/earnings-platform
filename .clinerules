@@ -26,3 +26,12 @@ When completing any task or code edit, you MUST automatically build and deploy d
    git push origin main
 
 STRICT GUARDRAIL: Never leave a task incomplete without executing the production build and deployment command. Always report the live Vercel URL upon task completion.
+
+## RULE 3: STRICT SCOPE
+- Strict Scope: Never scan files outside miniapp/ or project root.
+
+## RULE 4: ZERO DELETION LOCK
+- Zero Deletion: Never delete existing routes, buttons, or monetization features.
+
+## RULE 5: MANDATORY DEPLOY ACTION
+- Mandatory Action: Always execute `npx vercel --prod --yes` and output the live URL after changes.
