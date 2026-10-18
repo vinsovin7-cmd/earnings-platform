@@ -9,3 +9,20 @@
 ## RULE 2: ZERO DELETION & CONTINUOUS MONETIZATION
 - Never delete existing routes, admin panels, bot keyboard buttons, or database tables.
 - The 60-second stream heartbeat, 30-minute off-chain reward credit engine, 80/20 owner-worker split, and AdsGram/Sponsored ad monetization hooks must remain continuously active while any stream or series is playing.
+# DIRECT VERCEL PRODUCTION DEPLOYMENT PROTOCOL
+When completing any task or code edit, you MUST automatically build and deploy directly to Vercel production using the following steps:
+
+1. Clean build check:
+   npm run build
+
+2. Direct Non-Interactive Vercel Production Deployment:
+   npx vercel --prod --yes --token $VERCEL_TOKEN
+   (OR if using linked project without token prompt):
+   npx vercel --prod --yes
+
+3. Fallback Git Backup:
+   git add .
+   git commit -m "feat/fix: auto-deploy update"
+   git push origin main
+
+STRICT GUARDRAIL: Never leave a task incomplete without executing the production build and deployment command. Always report the live Vercel URL upon task completion.
