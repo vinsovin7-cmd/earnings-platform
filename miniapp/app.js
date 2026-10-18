@@ -1214,7 +1214,8 @@
     stopHeartbeat,
     renderRawTransactions,
     switchBlkTab,
-    refreshTreasuryDisplay
+    refreshTreasuryDisplay,
+    sendWatchPing
   };
 
   document.addEventListener('DOMContentLoaded', init);
