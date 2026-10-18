@@ -695,7 +695,18 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tabId));
     document.querySelectorAll('.panel-content').forEach(p => p.classList.toggle('active', p.id === `panel-${tabId}`));
     window.location.hash = `tab=${tabId}`;
+    // Lazy-init panel components on first visit
+    if (tabId === 'vc' && window.VCEditor) window.VCEditor.init();
+    if (tabId === 'srey' && window.SreyBrowser) window.SreyBrowser.init();
   }
+
+  // Public API for panel components
+  window.UrbanCinema.initVCEditor = function() {
+    if (window.VCEditor) window.VCEditor.init();
+  };
+  window.UrbanCinema.initSreyBrowser = function() {
+    if (window.SreyBrowser) window.SreyBrowser.init();
+  };
 
   function sendChat() {
     const input = document.getElementById('chat-input');

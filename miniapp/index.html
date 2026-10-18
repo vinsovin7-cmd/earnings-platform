@@ -106,6 +106,8 @@
       <button class="tab-btn" data-tab="series" onclick="window.UrbanCinema.switchTab('series')">⚔️ Series</button>
       <button class="tab-btn" data-tab="vip" onclick="window.UrbanCinema.switchTab('vip')">💎 VIP Lounge</button>
       <button class="tab-btn vault-tab" id="tab-btn-vault" data-tab="vault" onclick="window.UrbanCinema.switchTab('vault')">👑 Vault</button>
+      <button class="tab-btn" data-tab="vc" onclick="window.UrbanCinema.switchTab('vc')">💻 VC.Code</button>
+      <button class="tab-btn" data-tab="srey" onclick="window.UrbanCinema.switchTab('srey')">🌐 Srey Browser</button>
     </nav>
 
     <!-- MAIN VIEWPORT / VIDEO STAGE -->
@@ -280,6 +282,15 @@
           </div>
         </div>
       </section>
+      <!-- 6. 💻 VC.CODE EDITOR PANEL -->
+      <section id="panel-vc" class="panel-content">
+        <div id="vc-editor-root"></div>
+      </section>
+
+      <!-- 7. 🌐 SREY BROWSER PANEL -->
+      <section id="panel-srey" class="panel-content">
+        <div id="srey-browser-root"></div>
+      </section>
     </main>
 
     <!-- Sponsor Ad Modal -->
@@ -310,5 +321,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="vc-editor.js"></script>
+  <script src="srey-browser.js"></script>
 </body>
 </html>
