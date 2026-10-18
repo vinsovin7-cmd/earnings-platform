@@ -60,42 +60,73 @@ class AdminPanel(StatesGroup):
     waiting_broadcast = State()
     waiting_cashout = State()
 
-# --- BULLETPROOF GEMINI ENGINE: gemini-1.5-flash + exponential backoff ---
-GEMINI_MODEL = "gemini-1.5-flash"
-GEMINI_MAX_ATTEMPTS = 3
+# --- 🤖 GEMINI AI ENGINE: primary model + secondary fallback model ---
+PRIMARY_MODEL = "gemini-1.5-flash"
+SECONDARY_MODEL = "gemini-1.5-flash-8b"   # separate quota bucket; stays up when flash is rate-limited
+GEMINI_MAX_ATTEMPTS = 2                    # attempts per model before falling back
+REQUEST_TIMEOUT = 15                       # seconds per request
+
+
+def _is_transient_error(exc: Exception) -> bool:
+    """True if the error is worth retrying / falling back over (rate limit, timeout, 5xx)."""
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return True
+    text = str(exc).lower()
+    return any(marker in text for marker in (
+        "429", "quota", "rate limit", "resource exhausted",
+        "502", "503", "504", "unavailable", "timeout", "deadline",
+    ))
+
+
+async def _generate(model: str, prompt: str) -> str | None:
+    """Single generate_content call. Returns reply text or None on transient failure.
+
+    Non-transient errors (bad key, invalid prompt) are re-raised so the caller
+    stops instead of retrying a doomed request.
+    """
+    try:
+        response = await asyncio.wait_for(
+            GEMINI_CLIENT.aio.models.generate_content(
+                model=model,
+                contents=prompt
+            ),
+            timeout=REQUEST_TIMEOUT,
+        )
+        if response.text and response.text.strip():
+            return response.text.strip()
+    except Exception as e:
+        if not _is_transient_error(e):
+            raise
+    return None
+
 
 async def call_gemini_api(prompt: str) -> str:
-    """Query Gemini with automatic exponential backoff (up to 3 attempts).
+    """Query Gemini: primary model first, secondary model on rate-limit/timeout.
 
-    Falls back to a graceful, on-brand response if the Google API is congested
-    or quotas are exhausted, so users never see a raw error.
+    Never raises to the caller; returns a clean on-brand reply if every model
+    is exhausted, so the chat interaction never fails.
     """
     if not GEMINI_CLIENT:
         return "⚠️ Gemini API key is not configured in .env."
 
-    last_error = ""
-    for attempt in range(1, GEMINI_MAX_ATTEMPTS + 1):
-        try:
-            response = await asyncio.wait_for(
-                GEMINI_CLIENT.aio.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=prompt
-                ),
-                timeout=15
-            )
-            if response.text and response.text.strip():
-                return response.text.strip()
-            last_error = "Gemini returned an empty response."
-        except Exception as e:
-            last_error = str(e)
+    for model in (PRIMARY_MODEL, SECONDARY_MODEL):
+        for attempt in range(1, GEMINI_MAX_ATTEMPTS + 1):
+            try:
+                reply = await _generate(model, prompt)
+                if reply:
+                    return reply
+            except Exception as e:
+                # Non-transient errors (bad key, invalid prompt) are not retried.
+                if not _is_transient_error(e):
+                    break
 
-        # Exponential backoff before the next attempt (1s, 2s, ...) — skip after last.
-        if attempt < GEMINI_MAX_ATTEMPTS:
-            await asyncio.sleep(2 ** (attempt - 1))
+            # Exponential backoff before the next attempt (1s, ...) — skip after last.
+            if attempt < GEMINI_MAX_ATTEMPTS:
+                await asyncio.sleep(2 ** (attempt - 1))
 
-    # Graceful fallback after all attempts are exhausted.
-    return ("✨ Sreymara AI is experiencing high network traffic right now. "
-            "Please try again in a moment.")
+    # Graceful fallback — clean, successful response instead of a hard failure.
+    return ("✨ Sreymara AI is at capacity right now. "
+            "Please try again in a moment, or ask something shorter!")
 
 async def generate_icebreaker(user1_bio, user2_bio):
     prompt = (
