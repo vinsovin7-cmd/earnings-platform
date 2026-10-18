@@ -125,7 +125,7 @@
 
   /* Firefox */
   &[type=number] {
-    -moz-appearance: textfield;
+    appearance: auto;
   }
 
   /* General reset (covers newer browsers moving to standard appearance) */

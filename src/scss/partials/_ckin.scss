@@ -288,7 +288,7 @@ video::-webkit-media-controls-enclosure {
 
   &__seek {
     -webkit-appearance: none;
-    -moz-appearance: none;
+    appearance: auto;
     background: transparent;
     width: 100%;
     cursor: pointer;
