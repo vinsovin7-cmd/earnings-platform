@@ -114,6 +114,15 @@
     gutter.scrollTop = ta.scrollTop;
   }
 
+  function updateHighlight() {
+    const ta = getTextarea();
+    const hl = document.getElementById('vc-highlight');
+    if (!ta || !hl) return;
+    hl.innerHTML = highlight(ta.value, langOf(currentFile));
+    hl.scrollTop = ta.scrollTop;
+    hl.scrollLeft = ta.scrollLeft;
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // RENDER
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -135,6 +144,8 @@
         '</div>' +
         '<div class="vc-actions">' +
           '<button class="vc-btn vc-btn-run" title="Run / Preview" onclick="window.VCEditor.runPreview()">▶ Run</button>' +
+          '<button class="vc-btn" title="Clear editor" onclick="window.VCEditor.clear()">🧹 Clear</button>' +
+          '<button class="vc-btn" title="Copy code" onclick="window.VCEditor.copy()">📋 Copy</button>' +
           '<button class="vc-btn" title="Save" onclick="window.VCEditor.save()">💾 Save</button>' +
           '<button class="vc-btn" title="Format" onclick="window.VCEditor.format()">✨ Format</button>' +
           '<button class="vc-btn vc-btn-ai" title="AI Assist" onclick="window.VCEditor.toggleAI()">✨ AI Assist</button>' +
@@ -161,6 +172,7 @@
             '<div class="vc-tab-close" onclick="event.stopPropagation(); window.VCEditor.toggleAI()">✕</div>' +
           '</div>' +
           '<div class="vc-gutter" id="vc-gutter">' + lineNumbers(lineCount) + '</div>' +
+          '<pre class="vc-highlight" id="vc-highlight" aria-hidden="true">' + highlighted + '</pre>' +
           '<textarea class="vc-textarea" id="vc-textarea" spellcheck="false" wrap="off">' + esc(file) + '</textarea>' +
         '</div>' +
       '</div>' +
@@ -181,6 +193,7 @@
       ta.addEventListener('input', function() {
         editorContent = this.value;
         updateGutter();
+        updateHighlight();
         const mod = document.getElementById('vc-modified');
         if (mod) mod.textContent = '●';
         updateStatusLine();
@@ -188,11 +201,14 @@
       ta.addEventListener('scroll', function() {
         const g = getGutter();
         if (g) g.scrollTop = this.scrollTop;
+        const hl = document.getElementById('vc-highlight');
+        if (hl) { hl.scrollTop = this.scrollTop; hl.scrollLeft = this.scrollLeft; }
       });
       ta.addEventListener('keyup', updateStatusLine);
       ta.addEventListener('click', updateStatusLine);
     }
     updateGutter();
+    updateHighlight();
     updateStatusLine();
   }
 
@@ -313,6 +329,44 @@
       ta.value = code;
       editorContent = code;
       ta.dispatchEvent(new Event('input'));
+    },
+
+    clear() {
+      const ta = getTextarea();
+      if (!ta) return;
+      ta.value = '';
+      editorContent = '';
+      updateGutter();
+      updateHighlight();
+      const mod = document.getElementById('vc-modified');
+      if (mod) mod.textContent = '●';
+      updateStatusLine();
+    },
+
+    copy() {
+      const ta = getTextarea();
+      const text = ta ? ta.value : editorContent;
+      let done = false;
+      try {
+        const tmp = document.createElement('textarea');
+        tmp.value = text;
+        tmp.setAttribute('readonly', '');
+        tmp.style.position = 'fixed';
+        tmp.style.top = '-9999px';
+        document.body.appendChild(tmp);
+        tmp.select();
+        tmp.setSelectionRange(0, text.length);
+        done = document.execCommand('copy');
+        document.body.removeChild(tmp);
+      } catch (e) { done = false; }
+      if (!done && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(function() {});
+      }
+      const mod = document.getElementById('vc-modified');
+      if (mod) {
+        mod.textContent = '✓ Copied';
+        setTimeout(function() { mod.textContent = ''; }, 1200);
+      }
     }
   };
 

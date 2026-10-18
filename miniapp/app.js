@@ -692,6 +692,10 @@
 
   // --- TABS & CHAT ---
   function switchTab(tabId) {
+    // Alias: #tab=browser opens the Srey Browser panel
+    if (tabId === 'browser') tabId = 'srey';
+    // Guard: an unknown tab falls back to Cinema so the lower container never renders blank
+    if (!document.getElementById(`panel-${tabId}`)) tabId = 'cinema';
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === tabId));
     document.querySelectorAll('.panel-content').forEach(p => p.classList.toggle('active', p.id === `panel-${tabId}`));
     window.location.hash = `tab=${tabId}`;
