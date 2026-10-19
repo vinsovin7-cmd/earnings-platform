@@ -108,6 +108,7 @@
       <button class="tab-btn vault-tab" id="tab-btn-vault" data-tab="vault" onclick="window.UrbanCinema.switchTab('vault')">👑 Vault</button>
       <button class="tab-btn" data-tab="vc" onclick="window.UrbanCinema.switchTab('vc')">💻 VC.Code</button>
       <button class="tab-btn" data-tab="srey" onclick="window.UrbanCinema.switchTab('srey')">🌐 Srey Browser</button>
+      <button class="tab-btn" data-tab="earn" onclick="window.UrbanCinema.switchTab('earn')">🔥 Vault/Earn</button>
     </nav>
 
     <!-- MAIN VIEWPORT / VIDEO STAGE -->
@@ -291,6 +292,56 @@
       <section id="panel-srey" class="panel-content">
         <div id="srey-browser-root"></div>
       </section>
+
+      <!-- 8. 🔥 TON & GRAM EARNING VAULT + ON-CHAIN ACTIVATION MONITOR -->
+      <section id="panel-earn" class="panel-content">
+        <div class="earn-vault glass">
+          <div class="earn-header">
+            <h3 class="section-title">🔥 TON &amp; GRAM Earning Vault</h3>
+            <span class="earn-live-pill"><span class="earn-live-dot"></span> LIVE</span>
+          </div>
+
+          <div class="earn-counters">
+            <div class="earn-counter-box">
+              <span class="earn-c-label">Accumulated PTS</span>
+              <span class="earn-c-val earn-gold" id="earn-pts">105 PTS</span>
+              <span class="earn-c-sub">watch-to-earn ledger</span>
+            </div>
+            <div class="earn-counter-box">
+              <span class="earn-c-label">Native TON Balance</span>
+              <span class="earn-c-val" id="earn-ton">0.00105</span>
+              <span class="earn-c-sub">PTS ÷ 100,000 = TON</span>
+            </div>
+            <div class="earn-counter-box">
+              <span class="earn-c-label">GRAM Token Balance</span>
+              <span class="earn-c-val earn-cyan" id="earn-gram">1.050</span>
+              <span class="earn-c-sub">PTS ÷ 100 = GRAM</span>
+            </div>
+          </div>
+
+          <div class="earn-heartbeat glass" id="earn-heartbeat">
+            <span class="earn-hb-dot"></span>
+            <span class="earn-hb-text" id="earn-hb-text"> Watching 70/30 Earning Active</span>
+            <span class="earn-hb-count" id="earn-hb-count">60s</span>
+            <div class="earn-hb-bar"><div class="earn-hb-fill" id="earn-hb-fill"></div></div>
+          </div>
+
+          <div class="earn-activation glass">
+            <h4 class="earn-act-title">⚡ TonConnect &amp; Blockchain Activation Monitor</h4>
+            <div class="earn-wallet-row">
+              <button class="earn-btn earn-btn-ton" id="earn-tonconnect-btn" onclick="window.EarnVault && window.EarnVault.toggleWallet()">🔗 Connect Tonkeeper / Telegram Wallet</button>
+              <span class="earn-addr" id="earn-addr">No wallet connected</span>
+            </div>
+            <div class="earn-status-row">
+              <span class="earn-status-badge earn-st-idle" id="earn-status-badge">UNINITIALIZED — CONNECT WALLET</span>
+              <a class="earn-explorer" id="earn-explorer" href="https://tonviewer.com" target="_blank" rel="noopener" style="display:none;">🔎 Verify on TON Explorer</a>
+            </div>
+            <button class="earn-btn earn-btn-fire" id="earn-fire-btn" onclick="window.EarnVault && window.EarnVault.fireActivation()" disabled>🔥 Fire Activation (Send Micro-TON)</button>
+            <p class="earn-fire-note" id="earn-fire-note">Connect a TON wallet (Tonkeeper / Telegram Wallet) to enable on-chain activation.</p>
+            <div class="earn-log" id="earn-log"></div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- Sponsor Ad Modal -->
@@ -323,5 +374,6 @@
   <script src="app.js"></script>
   <script src="vc-editor.js"></script>
   <script src="srey-browser.js"></script>
+  <script src="earn-vault.js"></script>
 </body>
 </html>

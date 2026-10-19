@@ -1203,3 +1203,57 @@ html, body {
   .srey-address-group { min-width: 150px; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   EARNING VAULT — TON & GRAM counters + on-chain activation monitor
+   ═══════════════════════════════════════════════════════════════════════════ */
+.earn-vault { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.earn-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.earn-header .section-title { margin-bottom: 0; }
+.earn-live-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--emerald); }
+.earn-live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); animation: pulse 1.5s infinite; }
+
+.earn-counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.earn-counter-box { display: flex; flex-direction: column; gap: 4px; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+.earn-c-label { font-size: 10px; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; }
+.earn-c-val { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff; }
+.earn-c-val.earn-gold { color: var(--gold); text-shadow: 0 0 14px rgba(212,175,55,.35); }
+.earn-c-val.earn-cyan { color: var(--cyan); text-shadow: 0 0 14px rgba(0,242,254,.3); }
+.earn-c-sub { font-size: 10px; color: var(--muted); }
+
+.earn-heartbeat { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap; }
+.earn-hb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); animation: pulse 1s infinite; }
+.earn-hb-text { font-size: 12px; font-weight: 700; color: var(--emerald); flex: 1 1 auto; }
+.earn-hb-count { font-size: 12px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+.earn-hb-bar { flex: 1 1 100%; height: 6px; background: rgba(255,255,255,.06); border-radius: 99px; overflow: hidden; }
+.earn-hb-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), var(--emerald)); border-radius: 99px; transition: width 1s linear; }
+
+.earn-activation { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.earn-act-title { font-size: 13px; font-weight: 800; letter-spacing: .05em; color: var(--text); }
+.earn-wallet-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.earn-addr { font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 11px; color: var(--muted); word-break: break-all; }
+.earn-btn { border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); font-weight: 700; font-size: 12.5px; padding: 9px 16px; border-radius: 10px; cursor: pointer; transition: filter .15s, transform .1s; }
+.earn-btn:hover:not(:disabled) { filter: brightness(1.15); }
+.earn-btn:active:not(:disabled) { transform: translateY(1px); }
+.earn-btn:disabled { opacity: .45; cursor: not-allowed; }
+.earn-btn-ton { background: rgba(0,152,234,.18); border-color: #0098ea; color: #7fc7ff; }
+.earn-btn-fire { background: linear-gradient(135deg, #ff5722, #ff9800); border: none; color: #fff; font-size: 14px; font-weight: 800; padding: 12px 18px; box-shadow: 0 0 22px rgba(255,87,34,.45); letter-spacing: .02em; }
+.earn-btn-fire:not(:disabled) { animation: earnFireGlow 1.6s ease-in-out infinite; }
+@keyframes earnFireGlow { 0%,100% { box-shadow: 0 0 14px rgba(255,87,34,.4); } 50% { box-shadow: 0 0 30px rgba(255,152,0,.7); } }
+.earn-status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.earn-status-badge { font-size: 11px; font-weight: 800; letter-spacing: .05em; padding: 5px 12px; border-radius: 99px; border: 1px solid; }
+.earn-st-idle { color: var(--muted); border-color: var(--border); background: rgba(255,255,255,0.04); }
+.earn-st-wait { color: #ffb020; border-color: #ffb020; background: rgba(255,176,32,0.12); }
+.earn-st-active { color: var(--emerald); border-color: var(--emerald); background: rgba(0,230,118,0.12); box-shadow: 0 0 12px rgba(0,230,118,.25); }
+.earn-explorer { font-size: 11px; color: var(--cyan); font-weight: 700; text-decoration: none; border: 1px dashed var(--cyan); padding: 4px 10px; border-radius: 99px; }
+.earn-explorer:hover { background: rgba(0,242,254,.1); }
+.earn-fire-note { font-size: 11px; color: var(--muted); margin: 0; }
+.earn-log { max-height: 132px; overflow-y: auto; background: #0a0c12; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 10.5px; line-height: 1.65; color: #9fb0c9; }
+.earn-log-line.good { color: var(--emerald); }
+.earn-log-line.warn { color: #ffb020; }
+
+@media (max-width: 600px) {
+  .earn-counters { grid-template-columns: 1fr; }
+  .earn-c-val { font-size: 18px; }
+  .earn-btn { width: 100%; text-align: center; }
+}
+
