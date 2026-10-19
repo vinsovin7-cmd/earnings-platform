@@ -701,7 +701,10 @@
     window.location.hash = `tab=${tabId}`;
     // Lazy-init panel components on first visit
     if (tabId === 'vc' && window.VCEditor) window.VCEditor.init();
-    if (tabId === 'srey' && window.SreyBrowser) window.SreyBrowser.init();
+    if (tabId === 'srey' && window.SreyBrowser) {
+      window.SreyBrowser.init();
+      window.SreyBrowser.render();
+    }
   }
 
   // Public API for panel components

@@ -268,10 +268,10 @@
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   window.SreyBrowser = {
     init() {
-      if (state.isInitialized) return;
       state.isInitialized = true;
       render();
     },
+    render: render,
     load: load,
     back: back,
     forward: forward,
