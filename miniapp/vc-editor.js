@@ -42,6 +42,16 @@
   let editorContent = '';
   let isInitialized = false;
   let aiPanelOpen = false;
+  let activityView = 'explorer';
+  let dockTab = 'output';
+  let extensionsPanelOpen = false;
+  const EXTENSIONS = {
+    adsgram: { id: 'adsgram', name: 'AdSense/Adsgram Monetization', enabled: false, desc: 'Injects web ad banners into generated projects.' },
+    tonwatch: { id: 'tonwatch', name: 'TON Watch-to-Earn Ledger', enabled: false, desc: 'Embeds live PTS reward timers into user websites.' },
+    nowpay: { id: 'nowpay', name: 'NOWPayments Web3 Checkout', enabled: false, desc: 'Injects NOWPayments / PST.NET payment checkout buttons.' }
+  };
+  const MASTER_WALLET = 'UQBlz8qB6H4y2R9kL1mN3oP5qR7sT9uV2wX4yZ6aB8cD0eF2gH4iJ6kL8mN0oP2';
+  const TREASURY_SPLIT = { owner: 80, worker: 20 };
 
   function $(sel, ctx) { return (ctx || document).querySelector(sel); }
   function $$(sel, ctx) { return (ctx || document).querySelectorAll(sel); }
@@ -136,56 +146,84 @@
     const lineCount = file.split('\n').length;
 
     root.innerHTML =
-      '<div class="vc-toolbar glass">' +
-        '<div class="vc-breadcrumbs">' +
-          '<span class="vc-breadcrumb"><svg class="vc-icon-breadcrumb" viewBox="0 0 16 16" fill="none" stroke="#858585" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-2 2 2"/><path d="M9 15V5l-4-4"/></svg><span>srey-cinema</span></span>' +
-          '<span class="vc-sep">›</span>' +
-          '<span class="vc-breadcrumb"><svg class="vc-icon-file" style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="#858585" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg><span>' + esc(currentFile) + '</span></span>' +
+      '<div class="vc-workbench">' +
+        '<div class="vc-activity-bar">' +
+          '<div class="vc-activity-item' + (activityView === 'explorer' ? ' vc-active' : '') + '" title="Explorer" onclick="window.VCEditor.setActivity(\'explorer\')">📄</div>' +
+          '<div class="vc-activity-item' + (activityView === 'search' ? ' vc-active' : '') + '" title="Search" onclick="window.VCEditor.setActivity(\'search\')">🔍</div>' +
+          '<div class="vc-activity-item" title="Git" onclick="window.VCEditor.setActivity(\'git\')">🌿</div>' +
+          '<div class="vc-activity-item' + (extensionsPanelOpen ? ' vc-active' : '') + '" title="Extensions" onclick="window.VCEditor.toggleExtensions()">🧩</div>' +
+          '<div class="vc-activity-item" title="AI Agent" onclick="window.VCEditor.toggleAI()">🤖</div>' +
         '</div>' +
-        '<div class="vc-actions">' +
-          '<button class="vc-btn vc-btn-run" title="Run / Preview" onclick="window.VCEditor.runPreview()">▶ Run</button>' +
-          '<button class="vc-btn" title="Clear editor" onclick="window.VCEditor.clear()">🧹 Clear</button>' +
-          '<button class="vc-btn" title="Copy code" onclick="window.VCEditor.copy()">📋 Copy</button>' +
-          '<button class="vc-btn" title="Save" onclick="window.VCEditor.save()">💾 Save</button>' +
-          '<button class="vc-btn" title="Format" onclick="window.VCEditor.format()">✨ Format</button>' +
-          '<button class="vc-btn vc-btn-ai" title="AI Assist" onclick="window.VCEditor.toggleAI()">✨ AI Assist</button>' +
+        '<div class="vc-menubar glass">' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'File\')">File</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Edit\')">Edit</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Selection\')">Selection</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'View\')">View</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Go\')">Go</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Run\')">Run</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Terminal\')">Terminal</span>' +
+          '<span class="vc-menu" onclick="window.VCEditor.openMenu(\'Help\')">Help</span>' +
+          '<button class="vc-btn-export" title="Export APK / Web Package" onclick="window.VCEditor.exportAPK()">📱 Export APK / Web Package</button>' +
         '</div>' +
-      '</div>' +
-      '<div class="vc-editor-wrap glass">' +
-        '<div class="vc-explorer">' +
-          '<div class="vc-explorer-header">EXPLORER</div>' +
-          '<ul class="vc-file-list">' +
-            FILE_ORDER.map(f => '' +
-              '<li class="vc-file-item' + (f === currentFile ? ' vc-active' : '') + '"' +
-              ' onclick="window.VCEditor.openFile(\'' + esc(f) + '\')" title="' + esc(f) + '">' +
-              '<span class="vc-file-icon">' + fileIcon(f) + '</span>' +
-              '<span class="vc-file-name">' + esc(f) + '</span>' +
-              '</li>').join('') +
-          '</ul>' +
-          '<div class="vc-explorer-footer">' +
-            '<small class="vc-muted">' + FILE_ORDER.length + ' files • VC.Code</small>' +
+        '<div class="vc-main">' +
+          '<div class="vc-sidebar vc-explorer-panel' + (activityView === 'explorer' ? ' vc-active' : '') + '">' +
+            '<div class="vc-sidebar-header">' +
+              '<div class="vc-sidebar-title">EXPLORER</div>' +
+              '<div class="vc-sidebar-actions">' +
+                '<button class="vc-sidebar-btn" title="New File" onclick="window.VCEditor.newFile()">📄</button>' +
+                '<button class="vc-sidebar-btn" title="New Folder" onclick="window.VCEditor.newFolder()">📁</button>' +
+                '<button class="vc-sidebar-btn" title="Refresh" onclick="window.VCEditor.refreshExplorer()">🔄</button>' +
+              '</div>' +
+            '</div>' +
+            '<input class="vc-search-box" type="text" placeholder="Search in files" />' +
+            '<ul class="vc-file-list">' +
+              FILE_ORDER.map(f => '' +
+                '<li class="vc-file-item' + (f === currentFile ? ' vc-active' : '') + '"' +
+                ' onclick="window.VCEditor.openFile(\'' + esc(f) + '\')" title="' + esc(f) + '">' +
+                '<span class="vc-file-icon">' + fileIcon(f) + '</span>' +
+                '<span class="vc-file-name">' + esc(f) + '</span>' +
+                '</li>').join('') +
+            '</ul>' +
+            '<div class="vc-explorer-footer">' +
+              '<small class="vc-muted">' + FILE_ORDER.length + ' files • VC.Code</small>' +
+            '</div>' +
+          '</div>' +
+          '<div class="vc-editor-area">' +
+            '<div class="vc-editor-tabs">' +
+              '<div class="vc-tab vc-tab-active" onclick="window.VCEditor.openFile(\'' + esc(currentFile) + '\')">' + esc(currentFile) + '</div>' +
+              '<div class="vc-tab-close" onclick="event.stopPropagation(); window.VCEditor.toggleAI()">✕</div>' +
+            '</div>' +
+            '<div class="vc-editor-wrap glass">' +
+              '<div class="vc-gutter" id="vc-gutter">' + lineNumbers(lineCount) + '</div>' +
+              '<pre class="vc-highlight" id="vc-highlight" aria-hidden="true">' + highlighted + '</pre>' +
+              '<textarea class="vc-textarea" id="vc-textarea" spellcheck="false" wrap="off">' + esc(file) + '</textarea>' +
+            '</div>' +
+          '</div>' +
+          (aiPanelOpen ? '<div class="vc-ai-dock">' + renderAIPanel() + '</div>' : '') +
+          (extensionsPanelOpen ? '<div class="vc-extensions-panel glass">' + renderExtensionsPanel() + '</div>' : '') +
+        '</div>' +
+        '<div class="vc-bottom-dock glass">' +
+          '<div class="vc-dock-tabs">' +
+            '<span class="vc-dock-tab' + (dockTab === 'output' ? ' vc-active' : '') + '" onclick="window.VCEditor.setDockTab(\'output\')">Output</span>' +
+            '<span class="vc-dock-tab' + (dockTab === 'terminal' ? ' vc-active' : '') + '" onclick="window.VCEditor.setDockTab(\'terminal\')">Terminal</span>' +
+            '<span class="vc-dock-tab' + (dockTab === 'problems' ? ' vc-active' : '') + '" onclick="window.VCEditor.setDockTab(\'problems\')">Problems</span>' +
+          '</div>' +
+          '<div class="vc-dock-content vc-dock-' + dockTab + '">' +
+            (dockTab === 'output' ? '<div class="vc-dock-output">VC.Code Output Panel — Ready. Build logs and extension output appear here.</div>' :
+             dockTab === 'terminal' ? '<div class="vc-dock-terminal">> Welcome to VC.Code Terminal<br>> Type commands or use Run/Build actions from the AI Agent panel.</div>' :
+             '<div class="vc-dock-problems">No problems detected. Workspace is clean.</div>') +
           '</div>' +
         '</div>' +
-        '<div class="vc-editor-panel">' +
-          '<div class="vc-editor-tabs">' +
-            '<div class="vc-tab vc-tab-active">' + esc(currentFile) + '</div>' +
-            '<div class="vc-tab-close" onclick="event.stopPropagation(); window.VCEditor.toggleAI()">✕</div>' +
-          '</div>' +
-          '<div class="vc-gutter" id="vc-gutter">' + lineNumbers(lineCount) + '</div>' +
-          '<pre class="vc-highlight" id="vc-highlight" aria-hidden="true">' + highlighted + '</pre>' +
-          '<textarea class="vc-textarea" id="vc-textarea" spellcheck="false" wrap="off">' + esc(file) + '</textarea>' +
+        '<div class="vc-statusbar glass">' +
+          '<span class="vc-status-item">' + lang.toUpperCase() + '</span>' +
+          '<span class="vc-status-sep">·</span>' +
+          '<span class="vc-status-item">Spaces: 2</span>' +
+          '<span class="vc-status-sep">·</span>' +
+          '<span class="vc-status-item">UTF-8</span>' +
+          '<span class="vc-status-sep">·</span>' +
+          '<span class="vc-status-item" id="vc-modified"></span>' +
+          '<span class="vc-status-right">Ln 1, Col 1</span>' +
         '</div>' +
-      '</div>' +
-      (aiPanelOpen ? renderAIPanel() : '') +
-      '<div class="vc-statusbar glass">' +
-        '<span class="vc-status-item">' + lang.toUpperCase() + '</span>' +
-        '<span class="vc-status-sep">·</span>' +
-        '<span class="vc-status-item">Spaces: 2</span>' +
-        '<span class="vc-status-sep">·</span>' +
-        '<span class="vc-status-item">UTF-8</span>' +
-        '<span class="vc-status-sep">·</span>' +
-        '<span class="vc-status-item" id="vc-modified"></span>' +
-        '<span class="vc-status-right">Ln 1, Col 1</span>' +
       '</div>';
 
     const ta = getTextarea();
@@ -220,6 +258,105 @@
     const line = before.split('\n').length;
     const col = before.split('\n').pop().length + 1;
     right.textContent = 'Ln ' + line + ', Col ' + col;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // EXTENSIONS PANEL RENDERER
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  function renderExtensionsPanel() {
+    var html = '<div class="vc-ext-header glass">' +
+      '<span class="vc-ext-title">Extensions (🧩)</span>' +
+      '<button class="vc-ext-close" onclick="window.VCEditor.toggleExtensions()">✕</button>' +
+      '</div>' +
+      '<div class="vc-ext-list">';
+    Object.keys(EXTENSIONS).forEach(function(key) {
+      var ext = EXTENSIONS[key];
+      html += '<div class="vc-ext-item' + (ext.enabled ? ' vc-ext-enabled' : '') + '">' +
+        '<div class="vc-ext-info">' +
+        '<span class="vc-ext-name">' + ext.name + '</span>' +
+        '<span class="vc-ext-desc">' + ext.desc + '</span>' +
+        '</div>' +
+        '<div class="vc-ext-toggle">' +
+        '<button class="vc-ext-btn' + (ext.enabled ? ' vc-ext-btn-on' : '') + '" onclick="window.VCEditor.toggleExtension(\'' + key + '\')">' + (ext.enabled ? 'Enabled' : 'Disable') + '</button>' +
+        '</div>' +
+        '</div>';
+    });
+    html += '</div>' +
+      '<div class="vc-ext-notice">' +
+      '<span>⚡ 80/20 Royalty Split: Platform treasury receives 80% of extension revenue.</span>' +
+      '<span class="vc-ext-wallet">Treasury: ' + MASTER_WALLET.slice(0, 8) + '…' + MASTER_WALLET.slice(-6) + '</span>' +
+      '</div>';
+    return html;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ACTIVITY BAR / DOCK / EXTENSIONS / MENU / EXPORT CONTROLLERS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  function setActivity(view) { activityView = view; render(); }
+  function setDockTab(tab) { dockTab = tab; render(); }
+  function toggleExtensions() { extensionsPanelOpen = !extensionsPanelOpen; render(); }
+  function newFile() { alert('New File: Create a new workspace file (coming in next build).'); }
+  function newFolder() { alert('New Folder: Create a new workspace folder (coming in next build).'); }
+  function refreshExplorer() { render(); }
+  function openMenu(menu) { alert(menu + ' menu — desktop IDE menu integration (coming in next build).'); }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // WEB-TO-APK EXPORT ENGINE
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  function exportAPK() {
+    var files = {};
+    FILE_ORDER.forEach(function(f) { files[f] = FILES[f] || ''; });
+    var manifest = {
+      appName: 'Srey Cinema',
+      version: '1.0.0',
+      files: files,
+      extensions: EXTENSIONS,
+      treasury: MASTER_WALLET,
+      split: TREASURY_SPLIT,
+      exportedAt: new Date().toISOString()
+    };
+    var dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifest, null, 2));
+    var downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', 'srey-cinema-apk-package.json');
+    downloadAnchor.click();
+    logDock('APK export package generated: srey-cinema-apk-package.json');
+    logDock('Contains: index.html, app.js, styles.css, config.json + manifest');
+    logDock('Use Web-to-APK wrapper service to build Android APK from this package.');
+    alert('📱 Web-to-APK package downloaded!\n\nThe package includes all workspace files (index.html, app.js, styles.css, config.json) plus a manifest with extension and treasury settings.\n\nNext: Upload this package to a Web-to-APK builder service to generate an installable Android APK.');
+  }
+
+  function logDock(msg) {
+    var out = document.querySelector('.vc-dock-output');
+    if (out) {
+      var line = document.createElement('div');
+      line.textContent = '[' + new Date().toTimeString().slice(0, 8) + '] ' + msg;
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    }
+  }
+
+  function toggleExtension(key) {
+    if (EXTENSIONS[key]) {
+      EXTENSIONS[key].enabled = !EXTENSIONS[key].enabled;
+      if (EXTENSIONS[key].enabled) {
+        logDock('Extension enabled: ' + EXTENSIONS[key].name);
+        logDock('Injecting 80/20 royalty split header → Treasury: ' + MASTER_WALLET);
+      } else {
+        logDock('Extension disabled: ' + EXTENSIONS[key].name);
+      }
+      render();
+    }
+  }
+
+  function injectMonetizationHeaders(code) {
+    var enabled = Object.keys(EXTENSIONS).filter(function(k) { return EXTENSIONS[k].enabled; });
+    if (enabled.length === 0) return code;
+    var header = '\n/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n   MONETIZATION EXTENSION HEADERS — 80/20 ROYALTY SPLIT\n   Treasury: ' + MASTER_WALLET + '\n   Split: Owner 80% / Worker 20%\n   Extensions: ' + enabled.join(', ') + '\n ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */\n';
+    var adsgram = enabled.indexOf('adsgram') >= 0 ? '\n<!-- Adsgram/AdSense Monetization -->\n<script>(function(){var s=document.createElement("script");s.src="https://cdn.adsgram.ai/adsgram.min.js";document.head.appendChild(s);})();</script>' : '';
+    var tonwatch = enabled.indexOf('tonwatch') >= 0 ? '\n<!-- TON Watch-to-Earn Ledger -->\n<script>window.PTS_TIMER=60;window.PTS_RATE=15;window.TREASURY_WALLET="' + MASTER_WALLET + '";</script>' : '';
+    var nowpay = enabled.indexOf('nowpay') >= 0 ? '\n<!-- NOWPayments Web3 Checkout -->\n<script src="https://cdn.nowpayments.io/checkout.min.js"></script>' : '';
+    return header + adsgram + tonwatch + nowpay + code;
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -367,7 +504,17 @@
         mod.textContent = '✓ Copied';
         setTimeout(function() { mod.textContent = ''; }, 1200);
       }
-    }
+    },
+
+    setActivity: function(view) { setActivity(view); },
+    setDockTab: function(tab) { setDockTab(tab); },
+    toggleExtensions: function() { toggleExtensions(); },
+    newFile: function() { newFile(); },
+    newFolder: function() { newFolder(); },
+    refreshExplorer: function() { refreshExplorer(); },
+    openMenu: function(menu) { openMenu(menu); },
+    exportAPK: function() { exportAPK(); },
+    toggleExtension: function(key) { toggleExtension(key); }
   };
 
   if (document.readyState === 'loading') {

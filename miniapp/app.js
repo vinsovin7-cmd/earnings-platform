@@ -15,6 +15,53 @@
   let tgUser = null;
   let connectedWallet = null;
   let heartbeatInterval = null;
+   // Wallet storage constants
+   const WALLET_STORAGE_KEY = 'srey_mastr_wallet_v1';
+
+   // Wallet storage helpers
+   function saveWalletToStorage(wallet) {
+     try {
+       localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(wallet));
+       // TODO: Add indexedDB backup for extra persistence
+       return true;
+     } catch (e) {
+       console.error('Failed to save wallet to storage:', e);
+       return false;
+     }
+   }
+
+   function restoreWalletFromStorage() {
+     try {
+       const walletStr = localStorage.getItem(WALLET_STORAGE_KEY);
+       if (walletStr) {
+         const wallet = JSON.parse(walletStr);
+         return wallet;
+       }
+     } catch (e) {
+       console.error('Failed to restore wallet from storage:', e);
+     }
+     return null;
+   }
+
+   function clearWalletFromStorage() {
+     try {
+       localStorage.removeItem(WALLET_STORAGE_KEY);
+       // TODO: Clear indexedDB backup
+       return true;
+     } catch (e) {
+       console.error('Failed to clear wallet from storage:', e);
+       return false;
+     }
+   }
+
+   // Restore wallet on init
+   (function() {
+     const restored = restoreWalletFromStorage();
+     if (restored) {
+       connectedWallet = restored;
+       console.log('Wallet restored from storage:', connectedWallet);
+     }
+   })();
 
   // Expose early so inline onclick handlers never fail before IIFE completes
   window.UrbanCinema = window.UrbanCinema || {};
@@ -838,7 +885,7 @@
       if (address) {
         connectedWallet = { chain: chainLabel, address: address, balance: balance };
         displayWalletBadge(chainLabel, address, balance);
-        await bindWallet(chainLabel, address, balance);
+        await bindWalletPersistent(chainLabel, address, balance);
         refreshBlockchainData();
         startHeartbeat();
         closeWalletModal();
@@ -879,31 +926,40 @@
     return addr.slice(0, 6) + '…' + addr.slice(-4);
   }
 
-  async function bindWallet(chain, address, balance) {
-    if (!tgUser) return;
-    try {
-      const initData = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp.initData : '';
-      const resp = await fetch('/api/wallet/bind', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: tgUser.id,
-          username: tgUser.username || '',
-          chain: chain,
-          walletAddress: address,
-          liveBalance: balance,
-          status: 'ACTIVE',
-          initData: initData
-        })
-      });
-      const data = await resp.json();
-      if (data.status !== 'ok') {
-        console.warn('Wallet bind response:', data);
-      }
-    } catch(e) {
-      console.error('Wallet bind error:', e);
-    }
+async function bindWalletPersistent(chain, address, balance) {
+  if (!tgUser) return;
+  // Prevent binding if a wallet is already bound (requires explicit unbind first)
+  if (connectedWallet) {
+    console.warn('Wallet already bound. Unbind first to bind a new wallet.');
+    return;
   }
+  try {
+    const initData = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp.initData : '';
+    const resp = await fetch('/api/wallet/bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: tgUser.id,
+        username: tgUser.username || '',
+        chain: chain,
+        walletAddress: address,
+        liveBalance: balance,
+        status: 'ACTIVE',
+        initData: initData
+      })
+    });
+    const data = await resp.json();
+    if (data.status !== 'ok') {
+      console.warn('Wallet bind response:', data);
+      return;
+    }
+    // Update connectedWallet and persist to storage
+    connectedWallet = { chain, address, balance: balance || 0 };
+    saveWalletToStorage(connectedWallet);
+  } catch(e) {
+    console.error('Wallet bind error:', e);
+  }
+}
 
   function triggerRewardedAd() {
     const modal = document.getElementById('sponsor-modal');
@@ -1214,7 +1270,7 @@
     closeWalletModal,
     triggerRewardedAd,
     executeAdminCashout,
-    bindWallet,
+    bindWalletPersistent,
     refreshBlockchainData,
     sendHeartbeat,
     startHeartbeat,
@@ -1224,6 +1280,22 @@
     refreshTreasuryDisplay,
     sendWatchPing
   };
+   window.UrbanCinema.bindWallet = bindWalletPersistent;
+// Unbind wallet with confirmation
+window.UrbanCinema.unbindWallet = function() {
+  if (!connectedWallet) {
+    alert('No wallet is currently bound.');
+    return false;
+  }
+  const confirmed = window.confirm('Are you sure you want to unbind your wallet? This action cannot be undone.\\n\\nNote: This only affects the platform wallet binding in app.js, not your TonConnect wallet in the Earn Vault.');
+  if (confirmed) {
+    connectedWallet = null;
+    clearWalletFromStorage();
+    console.log('Wallet unbound and storage cleared.');
+    return true;
+  }
+  return false;
+};
 
   document.addEventListener('DOMContentLoaded', init);
 })();

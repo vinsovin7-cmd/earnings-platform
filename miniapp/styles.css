@@ -851,6 +851,33 @@ html, body {
 .vc-ai-send:hover { background: #8f72ff; }
 
 
+.vc-workbench { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #1e1e1e; }
+.vc-activity-bar { flex: 0 0 auto; width: 42px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; background: #252526; border-right: 1px solid #333333; flex-shrink: 0; z-index: 10; }
+.vc-activity-item { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; color: #858585; cursor: pointer; border-radius: 6px; transition: background .15s, color .15s; }
+.vc-activity-item:hover { background: #333333; color: #ffffff; }
+.vc-activity-item.vc-active { background: #007acc; color: #ffffff; }
+.vc-menubar { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; padding: 4px 10px; background: #2d2d2d; border-bottom: 1px solid #333333; flex-shrink: 0; z-index: 5; }
+.vc-menubar .vc-menu { font-size: 12px; font-weight: 600; color: #cccccc; cursor: pointer; padding: 4px 8px; border-radius: 3px; transition: background .15s, color .15s; }
+.vc-menubar .vc-menu:hover { background: #3a3a3a; color: #ffffff; }
+.vc-btn-export { margin-left: auto; font-size: 12px; font-weight: 700; color: #ffffff; background: #007acc; border: 1px solid #1177bb; border-radius: 5px; padding: 5px 12px; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s; }
+.vc-btn-export:hover { background: #1177bb; border-color: #3794ff; }
+.vc-main { display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.vc-sidebar { flex: 0 0 auto; width: 230px; min-width: 230px; max-width: 230px; display: flex; flex-direction: column; background: #252526; border-right: 1px solid #333333; overflow: hidden; flex-shrink: 0; }
+.vc-sidebar:not(.vc-active) { display: none; }
+.vc-sidebar-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #2d2d2d; border-bottom: 1px solid #333333; }
+.vc-sidebar-title { font-size: 12px; font-weight: 700; color: #cccccc; }
+.vc-sidebar-actions { display: flex; gap: 5px; }
+.vc-sidebar-btn { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: #858585; background: transparent; border: 1px solid #333333; border-radius: 4px; cursor: pointer; }
+.vc-sidebar-btn:hover { background: #333333; color: #ffffff; border-color: #007acc; }
+.vc-search-box { flex: 0 0 auto; padding: 6px 12px; font-size: 12px; color: #cccccc; background: #1e1e1e; border: none; border-bottom: 1px solid #333333; outline: none; width: 100%; box-sizing: border-box; }
+.vc-file-list { flex: 1 1 auto; overflow-y: auto; list-style: none; margin: 0; padding: 0; }
+.vc-file-item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; color: #cccccc; cursor: pointer; transition: background .15s; }
+.vc-file-item:hover { background: #333333; }
+.vc-file-item.vc-active { background: #007acc; color: #ffffff; }
+.vc-file-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.vc-file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vc-explorer-footer { flex: 0 0 auto; padding: 8px 12px; border-top: 1px solid #333333; font-size: 11px; color: #7a7a7a; }
+.vc-editor-area { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 /* ══════════════════════════════════════════════════════════════════════════════
    SREY BROWSER — Luxury dark glassmorphism Web3 super-app browser (surgical addition)
    Obsidian base • glowing cyan/gold accents • custom scrollbars
@@ -864,6 +891,14 @@ html, body {
 #srey-browser-root * { scrollbar-width: thin; scrollbar-color: #2b3244 #0a0c12; }
 #srey-browser-root ::-webkit-scrollbar { width: 9px; height: 9px; }
 #srey-browser-root ::-webkit-scrollbar-track { background: #0a0c12; }
+.vc-editor-tabs { flex: 0 0 auto; display: flex; align-items: center; height: 34px; background: #252526; border-bottom: 1px solid #333333; padding-left: 4px; overflow-x: auto; }
+.vc-tab { display: inline-flex; align-items: center; height: 100%; padding: 0 16px; font-size: 12.5px; color: #cccccc; background: #1e1e1e; border-right: 1px solid #333333; border-top: 2px solid #007acc; cursor: default; white-space: nowrap; }
+.vc-tab-close { margin-left: auto; margin-right: 10px; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; color: #9a9a9a; cursor: pointer; border-radius: 4px; }
+.vc-tab-close:hover { background: #3a3a3a; color: #fff; }
+.vc-editor-wrap { position: relative; flex: 1 1 auto; min-height: 0; background: #1e1e1e; overflow: hidden; }
+.vc-ai-dock { flex: 0 0 auto; width: 340px; min-width: 340px; max-width: 50%; display: flex; flex-direction: column; background: #252526; border-left: 1px solid #333333; overflow: hidden; flex-shrink: 0; }
+.vc-ai-dock .vc-ai-panel { position: static; width: 100%; height: 100%; border: none; border-radius: 0; box-shadow: none; margin: 0; }
+.vc-extensions-panel { flex: 0 0 auto; width: 340px; min-width: 340px; max-width: 50%; display: flex; flex-direction: column; background: #252526; border-left: 1px solid #333333; overflow: hidden; flex-shrink: 0; }
 #srey-browser-root ::-webkit-scrollbar-thumb {
   background: linear-gradient(#2b3244, #1c2233);
   border: 1px solid #38415a;
@@ -896,6 +931,34 @@ html, body {
   flex-wrap: wrap;
 }
 .srey-brand { display: flex; align-items: center; gap: 13px; }
+.vc-ext-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #2d2d2d; border-bottom: 1px solid #333333; }
+.vc-ext-title { font-size: 13px; font-weight: 700; color: #b8a6ff; }
+.vc-ext-close { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: none; color: #9a9a9a; font-size: 16px; cursor: pointer; border-radius: 4px; }
+.vc-ext-close:hover { background: #333333; color: #fff; }
+.vc-ext-list { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.vc-ext-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: #1e1e1e; border: 1px solid #333333; border-radius: 6px; }
+.vc-ext-item.vc-ext-enabled { border-color: #00e676; background: rgba(0,230,118,0.08); }
+.vc-ext-info { flex: 1 1 auto; min-width: 0; }
+.vc-ext-name { display: block; font-size: 12.5px; font-weight: 700; color: #cccccc; }
+.vc-ext-desc { display: block; font-size: 11px; color: #858585; margin-top: 2px; }
+.vc-ext-toggle { flex: 0 0 auto; }
+.vc-ext-btn { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 4px; border: none; cursor: pointer; color: #ffffff; background: #3a3a3a; border: 1px solid #4a4a4a; }
+.vc-ext-btn:hover { background: #4a4a4a; }
+.vc-ext-btn.vc-ext-btn-on { background: #00e676; color: #000000; }
+.vc-ext-btn.vc-ext-btn-on:hover { background: #3cff9e; }
+.vc-ext-notice { flex: 0 0 auto; padding: 10px 12px; border-top: 1px solid #333333; background: #1e1e1e; display: flex; flex-direction: column; gap: 4px; }
+.vc-ext-notice span { font-size: 11px; color: #858585; line-height: 1.4; }
+.vc-bottom-dock { flex: 0 0 auto; height: 130px; min-height: 130px; display: flex; flex-direction: column; background: #252526; border-top: 1px solid #333333; flex-shrink: 0; z-index: 5; }
+.vc-dock-tabs { flex: 0 0 auto; display: flex; align-items: center; height: 28px; background: #2d2d2d; border-bottom: 1px solid #333333; padding: 0 12px; gap: 4px; }
+.vc-dock-tab { font-size: 11px; font-weight: 600; color: #858585; cursor: pointer; padding: 4px 10px; border-radius: 3px 3px 0 0; transition: background .15s, color .15s; }
+.vc-dock-tab:hover { background: #3a3a3a; color: #cccccc; }
+.vc-dock-tab.vc-active { background: #1e1e1e; color: #007acc; border-bottom: 2px solid #007acc; margin-bottom: -1px; }
+.vc-dock-content { flex: 1 1 auto; overflow-y: auto; padding: 10px 12px; font-size: 12px; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; color: #cccccc; background: #1e1e1e; }
+.vc-dock-output { color: #d4d4d4; }
+.vc-dock-terminal { color: #00e676; }
+.vc-dock-problems { color: #f48771; }
+.vc-statusbar { flex: 0 0 auto; height: 24px; min-height: 24px; }
+@media (max-width: 768px) { .vc-ai-dock { width: 280px; min-width: 280px; } .vc-extensions-panel { width: 280px; min-width: 280px; } .vc-main { flex-direction: column; } .vc-sidebar { width: 100%; min-width: auto; max-width: none; } }
 .srey-brand-mark {
   width: 46px;
   height: 46px;

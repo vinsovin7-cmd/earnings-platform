@@ -14,6 +14,7 @@
   const BOOKMARKS = [
     { title: 'Srey Cinema', url: 'https://cinema.sreymara.example', icon: '🍿' },
     { title: 'VC.Code Editor', url: 'tab:vc', icon: '💻' },
+    { title: 'City of Cleveland Permit Portal', url: 'https://aca-prod.accela.com/COC/Cap/CapDetail.aspx?Module=BuildingHousing&TabName=BuildingHousing&capID1=26CAP&capID2=00000&capID3=017NU&agencyCode=COC&IsToShowInspection=', icon: '🏛️' },
     { title: 'Earnings Dashboard', url: 'https://earn.sreymara.example', icon: '💰' },
     { title: 'Token Vault', url: 'https://vault.sreymara.example', icon: '🏛️' },
     { title: 'Srey AI Concierge', url: 'tab:vip', icon: '✨' }
@@ -21,14 +22,19 @@
 
   const state = {
     mode: 'dashboard',
-    currentUrl: HOME_URL,
+    tabs: [
+      { id: 'tab-1', title: 'Tab 1', url: HOME_URL, favicon: '📄' }
+    ],
+    activeTabId: 'tab-1',
     history: [HOME_URL],
     histIndex: 0,
     points: 50,
     trx: 0.000,
     watchSeconds: 0,
     timer: null,
-    isInitialized: false
+    isInitialized: false,
+    frameBlocked: false,
+    blockedUrl: ''
   };
 
   function esc(html) {
