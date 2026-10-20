@@ -317,7 +317,8 @@ export default defineConfig({
       input: {
         main: './index.html',
         rewardsPreview: './rewards-preview.html',
-        cinema: './cinema.html'
+        cinema: './cinema.html',
+        admin: './public/admin.html'
       },
       output: {
         sourcemapIgnoreList: serverOptions.sourcemapIgnoreList

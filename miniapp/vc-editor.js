@@ -29,14 +29,14 @@
   };
 
   const FILES = {
-    'README.md': '# Srey Cinema Platform\n\nWelcome to VC.Code — a professional web-based code editor.\n\n## Available Files\n- index.html\n- app.js\n- styles.css\n- vc-editor.js\n- config.json\n\nWatch-to-earn active: 60s heartbeat, 30-min reward engine, 80/20 split.',
+    'README.md': '# Srey Cinema Platform\n\nWelcome to VC.Code — a professional web-based code editor.\n\n## Available Files\n- index.html\n- app.js\n- styles.css\n- vc-editor.js\n- config.json\n- admin.html\n\nWatch-to-earn active: 60s heartbeat, 30-min reward engine, 80/20 split.',
     'index.html': '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Sreymara Cinema</title>\n  <link rel="stylesheet" href="styles.css">\n</head>\n<body>\n  <div class="app-container">\n    <h1>Sreymara Cinema</h1>\n  </div>\n  <script src="app.js"></script>\n</body>\n</html>',
     'app.js': '// SREYMARA URBAN CINEMA ENGINE\n(function() {\n  window.UrbanCinema = window.UrbanCinema || {};\n  window.UrbanCinema.switchTab = function(tabId) {\n    document.querySelectorAll(\'.panel-content\').forEach(p =>\n      p.classList.toggle(\'active\', p.id === \'panel-\' + tabId));\n  };\n  console.log(\'Cinema engine loaded\');\n})();',
     'styles.css': '/* Obsidian luxury glass theme */\n:root {\n  --bg: #07090e;\n  --gold: #d4af37;\n  --cyan: #00f2fe;\n}\n* { box-sizing: border-box; margin: 0; padding: 0; }\nbody {\n  background: var(--bg);\n  color: #f8fafc;\n  font-family: -apple-system, BlinkMacSystemFont, \'SF Pro Display\', Inter, sans-serif;\n  min-height: 100vh;\n}',
     'config.json': '{\n  "app": "Sreymara Cinema & VIP Lounge",\n  "version": "1.0.0",\n  "earning": {\n    "heartbeatSeconds": 60,\n    "rewardPoints": 15,\n    "rewardTrx": 0.03,\n    "split": { "owner": 70, "worker": 30 }\n  },\n  "theme": "obsidian",\n  "tabs": ["cinema", "vc", "srey", "vip", "vault"]\n}'
   };
 
-  const FILE_ORDER = ['README.md', 'index.html', 'app.js', 'styles.css', 'config.json'];
+  const FILE_ORDER = ['README.md', 'index.html', 'app.js', 'styles.css', 'config.json', 'admin.html'];
 
   let currentFile = 'README.md';
   let editorContent = '';
@@ -50,10 +50,24 @@
     tonwatch: { id: 'tonwatch', name: 'TON Watch-to-Earn Ledger', enabled: false, desc: 'Embeds live PTS reward timers into user websites.' },
     nowpay: { id: 'nowpay', name: 'NOWPayments Web3 Checkout', enabled: false, desc: 'Injects NOWPayments / PST.NET payment checkout buttons.' }
   };
-  const MASTER_WALLET = 'UQBlz8qB6H4y2R9kL1mN3oP5qR7sT9uV2wX4yZ6aB8cD0eF2gH4iJ6kL8mN0oP2';
+  const MASTER_WALLET = 'UQBLz9rXINtlzVUMuUHosRBTpUWqfoxQ8WTkyAgtbSVIbnBJ';
   const TREASURY_SPLIT = { owner: 80, worker: 20 };
+   const VOLUME = 0.8;
+   const AUTOPLAY = true;
 
-  function $(sel, ctx) { return (ctx || document).querySelector(sel); }
+  function startTonWebRevenuePolling() {
+     // Placeholder for TonWeb revenue polling logic
+     console.log('TonWeb revenue polling started');
+     // In a real implementation, this would poll a TON wallet for revenue
+   }
+   function startTonWebRevenuePolling() {
+     // Placeholder for TonWeb revenue polling logic
+     console.log('TonWeb revenue polling started');
+     // In a real implementation, this would poll a TON wallet for revenue
+   }
+  
+      startTonWebRevenuePolling();
+      function $(sel, ctx) { return (ctx || document).querySelector(sel); }
   function $$(sel, ctx) { return (ctx || document).querySelectorAll(sel); }
   function esc(html) {
     return String(html).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":"&#39;",'"':'&quot;'}[c]));

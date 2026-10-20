@@ -1,0 +1,1 @@
+(Get-Content 'miniapp\vc-editor.js') -replace "const MASTER_WALLET = 'UQBlz8qB6H4y2R9kL1mN3oP5qR7sT9uV2wX4yZ6aB8cD0eF2gH4iJ6kL8mN0oP2';", "const MASTER_WALLET = 'UQBLz9rXINtlzVUMuUHosRBTpUWqfoxQ8WTkyAgtbSVIbnBJ';"; Set-Content 'miniapp\vc-editor.js'
