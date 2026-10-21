@@ -54,6 +54,34 @@
      }
    }
 
+   // ─────────────────────────────────────────────────────────────────────
+   // SHARED GLOBAL WALLET STATE (single source of truth across header + vault)
+   // ─────────────────────────────────────────────────────────────────────
+   const GLOBAL_WALLET_KEY = 'srey_global_wallet_v1';
+   function writeGlobalWallet(wallet) {
+     try { localStorage.setItem(GLOBAL_WALLET_KEY, JSON.stringify(wallet)); } catch (e) { /* noop */ }
+     window.dispatchEvent(new CustomEvent('srey-wallet-change', { detail: wallet || { connected: false } }));
+   }
+   function readGlobalWallet() {
+     try { return JSON.parse(localStorage.getItem(GLOBAL_WALLET_KEY) || 'null'); } catch (e) { return null; }
+   }
+   function clearGlobalWallet() {
+     try { localStorage.removeItem(GLOBAL_WALLET_KEY); } catch (e) { /* noop */ }
+     window.dispatchEvent(new CustomEvent('srey-wallet-change', { detail: { connected: false } }));
+   }
+
+   // Expose wallet helpers for the Vault Monitor (earn-vault.js) to call on disconnect.
+   window.UrbanCinema = window.UrbanCinema || {};
+   window.UrbanCinema.writeGlobalWallet = writeGlobalWallet;
+   window.UrbanCinema.clearGlobalWallet = clearGlobalWallet;
+   window.UrbanCinema.clearWallet = function() {
+     connectedWallet = null;
+     clearWalletFromStorage();
+     clearGlobalWallet();
+     const badge = document.getElementById('wallet-badge');
+     if (badge) badge.style.display = 'none';
+   };
+
    // Restore wallet on init
    (function() {
      const restored = restoreWalletFromStorage();
@@ -832,8 +860,9 @@
             balance = (parseInt(wallets.account.balance || '0') / 1e9).toFixed(4);
           }
         } else {
-          address = await promptTONAddress();
-          balance = '0.0000';
+          // TonConnect UI not available — no manual prompt fallback (issue #1 / #2).
+          // Require a real TonConnect session instead of a text prompt.
+          console.warn('TON: TonConnect UI not available on window; cannot connect without it.');
         }
       } else if (chain === 'SOL') {
         if (window.solana && (window.solana.isPhantom || window.solana.isSolflare)) {
@@ -884,6 +913,7 @@
 
       if (address) {
         connectedWallet = { chain: chainLabel, address: address, balance: balance };
+        writeGlobalWallet({ connected: true, chain: chainLabel, address: address, balance: balance });
         displayWalletBadge(chainLabel, address, balance);
         await bindWalletPersistent(chainLabel, address, balance);
         refreshBlockchainData();
@@ -896,7 +926,6 @@
     }
   }
 
-  function promptTONAddress() { return prompt('Enter your TON wallet address (EQ... or UQ...):'); }
   function promptSolanaAddress() { return prompt('Enter your Solana wallet address:'); }
   function promptTRXAddress() { return prompt('Enter your TRON/TRX wallet address (T...):'); }
   function promptEVMAddress() { return prompt('Enter your EVM wallet address (0x...):'); }
@@ -1291,6 +1320,7 @@ window.UrbanCinema.unbindWallet = function() {
   if (confirmed) {
     connectedWallet = null;
     clearWalletFromStorage();
+    clearGlobalWallet();
     console.log('Wallet unbound and storage cleared.');
     return true;
   }

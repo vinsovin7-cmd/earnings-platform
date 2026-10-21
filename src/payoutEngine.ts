@@ -25,6 +25,12 @@ export type RevenueEvent = {
   metadata?: Record<string, unknown>;
 };
 
+/** Server-side payout settle endpoint. Handles WALLETPAYOUT_MNEMONIC signing. */
+const PAYOUT_SETTLE_URL =
+  typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PAYOUT_SETTLE_URL
+    ? (import.meta as any).env.VITE_PAYOUT_SETTLE_URL
+    : '/api/payout-settle';
+
 type PayoutRecord = {
   amountUsdt: number;
   timestamp: number;
@@ -136,14 +142,12 @@ export class PayoutEngine {
     }
   }
 
-  /** Dispatch an on-chain payout transaction to the master wallet */
+  /** Dispatch an on-chain payout transaction to the master wallet via the server-side settle API */
   private async dispatchPayout(amountUsdt: number): Promise<string> {
-    // In production, this would:
-    // 1. Call /api/wallet/claim-rewards to execute an on-chain TON/USDT transfer
-    // 2. Use TON Connect or a server relayer to sign and broadcast the transaction
-    // 3. Return the transaction hash from Tonviewer
-
-    const response = await fetch('/api/wallet/claim-rewards', {
+    // Server-side (api/payout-settle) signs with WALLETPAYOUT_MNEMONIC and
+    // broadcasts on-chain. The client never sees the mnemonic and no wallet
+    // popup is required for automated settlements.
+    const response = await fetch(PAYOUT_SETTLE_URL, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -154,10 +158,15 @@ export class PayoutEngine {
     });
 
     if(!response.ok) {
-      throw new Error(`Payout API failed: ${response.status}`);
+      const body = await response.text().catch(() => '');
+      throw new Error(`Payout settle API failed: ${response.status} ${body}`);
     }
 
     const result = await response.json();
+    if(result.simulated) {
+      console.log('[PayoutEngine] Server-side payout simulated (WALLETPAYOUT_MNEMONIC not configured)');
+      return `0xsim-${Date.now().toString(16)}`;
+    }
     return result.txHash || `0x${Math.random().toString(16).slice(2, 66)}`;
   }
 

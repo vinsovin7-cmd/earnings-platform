@@ -75,12 +75,12 @@
     "@types/chrome": "0.2.2",
     "@types/dom-webcodecs": "^0.1.18",
     "@types/express": "^5.0.6",
+    "@types/node": "^22.9.0",
     "@types/pngjs": "^6.0.5",
     "@types/prismjs": "^1.26.6",
     "@types/ws": "^8.18.1",
     "@typescript/native": "npm:typescript@^7.0.2",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
-    "@types/node": "^22.9.0",
     "aes-js": "^3.1.2",
     "autoprefixer": "^10.5.4",
     "axe-core": "^4.11.4",
@@ -88,12 +88,12 @@
     "browserslist": "^4.28.7",
     "compression": "^1.8.1",
     "concurrently": "^9.2.5",
+    "cross-env": "^7.0.3",
     "csstype": "^3.2.3",
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8",
     "electron-updater": "^6.8.9",
     "esbuild": "0.27.4",
-    "cross-env": "^7.0.3",
     "express": "^5.2.1",
     "fake-indexeddb": "^6.2.5",
     "fast-png": "^8.0.0",
@@ -114,8 +114,8 @@
     "qr-code-styling": "^1.9.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "sass": "^1.101.3",
-    "tsx": "^4.19.2",
     "tinyld": "^1.3.4",
+    "tsx": "^4.19.2",
     "typed-scss-modules": "8.1.1",
     "vite": "^8.2.1",
     "vite-plugin-handlebars": "^2.0.3",
@@ -145,19 +145,29 @@
       "output": "release"
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/assets/img/android-chrome-256x256.png",
       "requestedExecutionLevel": "asInvoker"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "public/assets/img/favicon.ico",
       "category": "public.app-category.social-networking",
       "hardenedRuntime": true,
       "gatekeeperAssess": false
     },
     "linux": {
-      "target": ["AppImage", "deb", "snap"],
+      "target": [
+        "AppImage",
+        "deb",
+        "snap"
+      ],
       "icon": "public/assets/img/favicon.ico",
       "category": "Network;InstantMessaging;Chat;"
     },
@@ -212,6 +222,9 @@
     "@tiptap/extension-underline": "3.28.0",
     "@tiptap/extensions": "3.28.0",
     "@tiptap/pm": "3.28.0",
+    "@ton/core": "^0.63.1",
+    "@ton/crypto": "^3.3.0",
+    "@ton/ton": "^16.3.0",
     "@tonconnect/ui": "3.0.2",
     "temml": "^0.13.3"
   }

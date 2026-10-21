@@ -31,6 +31,30 @@
   function stamp() { return new Date().toTimeString().slice(0, 8); }
   function truncate(a) { return a && a.length > 12 ? a.slice(0, 8) + '…' + a.slice(-6) : (a || ''); }
 
+  // ─────────────────────────────────────────────────────────────────────
+  // SHARED GLOBAL WALLET STATE (single source of truth across header + vault)
+  // Persisted in localStorage + broadcast via window event so that connect /
+  // disconnect in either the header navigation (miniapp/app.js) or the Vault
+  // Monitor (this file) is reflected everywhere instantly.
+  // ─────────────────────────────────────────────────────────────────────
+  const GLOBAL_WALLET_KEY = 'srey_global_wallet_v1';
+
+  function writeGlobalWallet(wallet) {
+    try { localStorage.setItem(GLOBAL_WALLET_KEY, JSON.stringify(wallet)); } catch (e) { /* noop */ }
+    window.dispatchEvent(new CustomEvent('srey-wallet-change', { detail: wallet || { connected: false } }));
+  }
+  function readGlobalWallet() {
+    try { return JSON.parse(localStorage.getItem(GLOBAL_WALLET_KEY) || 'null'); } catch (e) { return null; }
+  }
+  function clearGlobalWallet() {
+    try { localStorage.removeItem(GLOBAL_WALLET_KEY); } catch (e) { /* noop */ }
+    window.dispatchEvent(new CustomEvent('srey-wallet-change', { detail: { connected: false } }));
+  }
+  function onGlobalWalletChange(handler) {
+    window.addEventListener('srey-wallet-change', handler);
+    return () => window.removeEventListener('srey-wallet-change', handler);
+  }
+
   function log(msg, cls) {
     const el = $('earn-log');
     if (!el) return;
@@ -165,27 +189,29 @@
     if (existing) {
       adoptAddress(existing, 'TON');
       log('🔗 Synced TON wallet from header connection');
+      writeGlobalWallet({ connected: true, chain: 'TON', address: existing });
       return;
     }
 
-    // 2) Live TonConnect SDK wallet picker (Tonkeeper / Telegram Wallet)
+    // 2) Live TonConnect UI wallet picker (Tonkeeper / Telegram Wallet).
+    //    Opens the official modal — no manual text prompt is used anymore.
     if (window.TonConnectUI) {
       try {
         if (!state.tc) state.tc = new window.TonConnectUI({ manifestUrl: MANIFEST });
         const res = await state.tc.connectWallet();
         if (res && res.account && res.account.address) {
           adoptAddress(res.account.address, 'TON');
+          writeGlobalWallet({ connected: true, chain: 'TON', address: res.account.address });
           log('🔗 TonConnect session established');
           return;
         }
       } catch (e) {
-        log('⚠ TonConnect picker unavailable — falling back to manual address', 'warn');
+        log('⚠ TonConnect picker unavailable', 'warn');
       }
     }
 
-    // 3) Manual fallback (same pattern as the header wallet modal)
-    const manual = prompt('Enter your TON wallet address (EQ... or UQ...):');
-    if (manual && manual.trim()) adoptAddress(manual.trim(), 'TON');
+    // No manual prompt fallback — require a real TonConnect session.
+    log('ℹ TON Connect required — open the wallet picker to connect', 'warn');
   }
 
   function disconnectWallet() {
@@ -196,6 +222,12 @@
     if (state.tc) {
       try { if (typeof state.tc.disconnect === 'function') state.tc.disconnect(); } catch (e) { /* noop */ }
       state.tc = null;
+    }
+    // Clear the single shared wallet state so the header navigation and any
+    // other consumer reflect the disconnect immediately (issue #3).
+    clearGlobalWallet();
+    if (window.UrbanCinema && window.UrbanCinema.clearWallet) {
+      try { window.UrbanCinema.clearWallet(); } catch (e) { /* noop */ }
     }
     renderWallet();
     log('⏏ Wallet disconnected — status reset to UNINITIALIZED');
@@ -317,6 +349,13 @@
     renderCounters();
     tickHeartbeat();
     if (!state.connected && !state.headerAdoptSuppressed) {
+      // Sync from the shared global wallet state (header or any other tab).
+      const global = readGlobalWallet();
+      if (global && global.connected && global.address && isTonAddress(global.address)) {
+        adoptAddress(global.address, global.chain || 'TON');
+        log('🔗 Auto-synced TON wallet from shared global state');
+        return;
+      }
       const header = readHeaderWallet();
       if (header) {
         adoptAddress(header, 'TON');
