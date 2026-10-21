@@ -209,6 +209,7 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "@google/generative-ai": "^0.24.1",
     "@tiptap/core": "3.28.0",
     "@tiptap/extension-bold": "3.28.0",
     "@tiptap/extension-code-block": "3.28.0",

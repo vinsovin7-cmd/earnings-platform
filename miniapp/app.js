@@ -800,10 +800,37 @@
     log.innerHTML += `<div class="chat-msg user"><strong>You:</strong> ${msg}</div>`;
     log.scrollTop = log.scrollHeight;
 
-    setTimeout(() => {
-      log.innerHTML += `<div class="chat-msg ai"><strong>Srey AI:</strong> You're in the VIP Lounge! Enjoying the Merlin cinema series? Let me know if you need dating advice or crypto withdrawal support.</div>`;
-      log.scrollTop = log.scrollHeight;
-    }, 800);
+    // Show a typing indicator while waiting for the AI response.
+    const typing = document.createElement('div');
+    typing.className = 'chat-msg ai';
+    typing.innerHTML = '<strong>Srey AI:</strong> <span class="typing">typing…</span>';
+    typing.id = 'ai-typing';
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    fetch('/api/ai-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+    })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'AI response failed');
+        return data;
+      })
+      .then((data) => {
+        const el = document.getElementById('ai-typing');
+        if (el) el.remove();
+        log.innerHTML += `<div class="chat-msg ai"><strong>Srey AI:</strong> ${data.reply}</div>`;
+        log.scrollTop = log.scrollHeight;
+      })
+      .catch((err) => {
+        console.error('AI chat error:', err);
+        const el = document.getElementById('ai-typing');
+        if (el) el.remove();
+        log.innerHTML += `<div class="chat-msg ai"><strong>Srey AI:</strong> I am currently updating my concierge engine. Please try your request again in a moment!</div>`;
+        log.scrollTop = log.scrollHeight;
+      });
   }
 
   function sendQuickPrompt(promptText) {
