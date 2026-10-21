@@ -82,6 +82,11 @@ function CinemaPage() {
   const [tonUsdtBalance, setTonUsdtBalance] = createSignal('');
   const [tonWalletStatus, setTonWalletStatus] = createSignal('TON wallet not connected');
   const [tonBalanceLoading, setTonBalanceLoading] = createSignal(false);
+  // Master wallet balance (always visible via TonCenter RPC)
+  const [masterUsdtBalance, setMasterUsdtBalance] = createSignal('0.00');
+  const [masterTonBalance, setMasterTonBalance] = createSignal('0.0000');
+  const [masterBalanceLoading, setMasterBalanceLoading] = createSignal(false);
+  const MASTER_WALLET_ADDRESS = 'UQBLz9rXINtlzVUMuUHosRBTpUWqfoxQ8WTkyAgtbSVIbnBJ';
   // Companion session state
   const [companionSection, setCompanionSection] = createSignal(false);
   const [companionMessages, setCompanionMessages] = createSignal<CompanionMessage[]>([]);
@@ -310,6 +315,30 @@ function CinemaPage() {
         balanceRequest = undefined;
         if(!disposed) setTonBalanceLoading(false);
       }
+    }
+  };
+
+  const refreshMasterWalletBalance = async() => {
+    setMasterBalanceLoading(true);
+    try {
+      // Fetch native TON balance via TonAPI (accepts user-friendly addresses)
+      const tonResponse = await fetch(`https://tonapi.io/v2/accounts/${encodeURIComponent(MASTER_WALLET_ADDRESS)}`);
+      if(tonResponse.ok) {
+        const tonData = await tonResponse.json();
+        const tonBalance = ((tonData.balance || 0) / 1e9).toFixed(4);
+        setMasterTonBalance(tonBalance);
+      }
+      // Fetch USDT Jetton balance via TonCenter
+      try {
+        const usdtBalance = await fetchTonUsdtBalance(MASTER_WALLET_ADDRESS);
+        setMasterUsdtBalance(formatTonUsdtBalance(usdtBalance));
+      } catch(usdtError) {
+        console.warn('Could not load master wallet USDT balance:', usdtError);
+      }
+    } catch(error) {
+      console.error('Could not load master wallet TON balance:', error);
+    } finally {
+      setMasterBalanceLoading(false);
     }
   };
 
@@ -1211,6 +1240,11 @@ function CinemaPage() {
     });
     setMonetizationReady(true);
     
+    // Load master wallet balance via TonCenter RPC (always visible)
+    void refreshMasterWalletBalance();
+    const masterBalanceInterval = window.setInterval(() => void refreshMasterWalletBalance(), 60_000);
+    onCleanup(() => window.clearInterval(masterBalanceInterval));
+
     void initializeTonConnect();
     try {
       const savedKeys: unknown = JSON.parse(localStorage.getItem(DEMO_KEYS_STORAGE_KEY) || '{}');
@@ -1329,8 +1363,9 @@ function CinemaPage() {
             </button>
           }>
             <span class="cinema-header-wallet-balance">
-              {!tonWalletOnMainnet() ? 'TON testnet' :
-                tonBalanceLoading() ? 'Loading USDt…' : `${tonUsdtBalance() || '—'} USDt`}
+              {masterBalanceLoading() ? 'Loading master balance…' :
+                masterUsdtBalance() !== '0.00' ? `${masterUsdtBalance()} USDT` :
+                masterTonBalance() !== '0.0000' ? `${masterTonBalance()} TON` : '—'}
             </span>
             <button
               class="cinema-header-wallet-button"

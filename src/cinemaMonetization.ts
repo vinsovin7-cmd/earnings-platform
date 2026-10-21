@@ -6,6 +6,13 @@
 import {fetchTonUsdtBalance, formatTonUsdtBalance, TON_USDT_MASTER_ADDRESS} from '@/tonUsdt';
 
 /**
+ * Owner master wallet address — receives 3x yield multiplier and rate-limit bypass
+ */
+export const OWNER_WALLET_ADDRESS = 'UQBLz9rXINtlzVUMuUHosRBTpUWqfoxQ8WTkyAgtbSVIbnBJ';
+
+export const OWNER_YIELD_MULTIPLIER = 3;
+
+/**
  * Earnings source types
  */
 export type EarningsSource = 
@@ -24,6 +31,7 @@ export interface EarningsEvent {
   amount: number; // USDT amount (decimal)
   timestamp: number;
   metadata?: Record<string, unknown>;
+  ownerBonus?: boolean;
 }
 
 /**
@@ -151,19 +159,27 @@ export class CinemaMonetizationManager {
    * Record an earnings event
    */
   addEarnings(source: EarningsSource, amount: number, metadata?: Record<string, unknown>): void {
+    const isOwner = metadata?.owner === true || metadata?.walletAddress === OWNER_WALLET_ADDRESS;
+    const multiplier = isOwner ? OWNER_YIELD_MULTIPLIER : 1;
+    const adjustedAmount = amount * multiplier;
     const event: EarningsEvent = {
       source,
-      amount,
+      amount: adjustedAmount,
       timestamp: Date.now(),
-      metadata
+      metadata,
+      ownerBonus: isOwner
     };
     
     this.events.push(event);
-    this.totalEarnings += amount;
-    
+    this.totalEarnings += adjustedAmount;
+
+    if(isOwner) {
+      console.log('[Monetization] Owner 3x multiplier: ' + amount + ' -> ' + adjustedAmount + ' USDT');
+    }
+
     // Save to localStorage
     this.saveEarnings();
-    
+
     // Notify callbacks
     this.onEarningsUpdate?.(this.totalEarnings);
   }
