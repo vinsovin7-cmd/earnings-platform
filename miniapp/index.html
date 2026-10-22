@@ -88,6 +88,15 @@
         </svg>
         <span>BUILD & YIELD</span>
       </button>
+      <!-- 14-Color Glitching Solar Badge + 6000mAh Battery Charging Bar -->
+      <div class="battery-container" id="battery-container" style="display:none;">
+        <span class="solar-badge" id="solar-badge">⚡ SOLAR CHARGE</span>
+        <span class="battery-label">BATTERY</span>
+        <div class="battery-bar-wrap">
+          <div class="battery-bar-fill charging" id="battery-fill"></div>
+        </div>
+        <span class="battery-pct" id="battery-pct">0%</span>
+      </div>
     </header>
 
     <!-- DVD Resume Machine Banner -->
@@ -144,6 +153,7 @@
           ⏱️ <span id="wte-timer">00:00</span>
           <span class="wte-status" id="wte-status">Watching (70/30 earning active)</span>
         </div>
+        <button class="hd-toggle" id="hd-toggle" onclick="window.UrbanCinema.toggleHDQuality()">HD 1080p</button>
       </div>
     </section>
 

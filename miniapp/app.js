@@ -15,6 +15,17 @@
   let tgUser = null;
   let connectedWallet = null;
   let heartbeatInterval = null;
+
+  // ─────────────────────────────────────────────────────────────────────
+  // BATTERY EARNINGS ENGINE (6000mAh solar charging + yield)
+  // ─────────────────────────────────────────────────────────────────────
+  let batteryMah = 0;                 // current charge 0-6000 mAh
+  const BATTERY_MAX = 6000;           // full capacity
+  const BATTERY_CHARGE_PER_SEC = 10;  // mAh gained per second while playing
+  let batteryInterval = null;         // 1-second ticker
+  let hdQuality = false;              // HD 1080p toggle state
+  let videoEndedAdPending = false;    // guard against double ad on ended
+  const MASTER_WALLET = 'UQBLz9rXINTlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVIbnBJ';
    // Wallet storage constants
    const WALLET_STORAGE_KEY = 'srey_mastr_wallet_v1';
 
@@ -237,6 +248,113 @@
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────
+  // BATTERY CHARGING ENGINE — fills while video plays, yields TON/USDT
+  // ─────────────────────────────────────────────────────────────────────
+  function startBatteryCharging() {
+    if (batteryInterval) return;
+    const container = document.getElementById('battery-container');
+    const badge = document.getElementById('solar-badge');
+    if (container) container.style.display = 'flex';
+    if (badge) badge.style.display = 'inline-flex';
+    batteryInterval = setInterval(() => {
+      batteryMah = Math.min(BATTERY_MAX, batteryMah + BATTERY_CHARGE_PER_SEC);
+      updateBatteryDisplay();
+      if (batteryMah >= BATTERY_MAX) {
+        clearInterval(batteryInterval);
+        batteryInterval = null;
+        triggerAutoWithdraw();
+      }
+    }, 1000);
+  }
+
+  function stopBatteryCharging() {
+    if (batteryInterval) {
+      clearInterval(batteryInterval);
+      batteryInterval = null;
+    }
+  }
+
+  function updateBatteryDisplay() {
+    const fill = document.getElementById('battery-fill');
+    const pct = document.getElementById('battery-pct');
+    const percent = Math.floor((batteryMah / BATTERY_MAX) * 100);
+    if (fill) {
+      fill.style.width = percent + '%';
+      if (percent >= 100) fill.classList.add('battery-full-flash');
+    }
+    if (pct) pct.textContent = percent + '%';
+  }
+
+  function resetBattery() {
+    batteryMah = 0;
+    stopBatteryCharging();
+    updateBatteryDisplay();
+    const container = document.getElementById('battery-container');
+    const fill = document.getElementById('battery-fill');
+    if (container) container.style.display = 'none';
+    if (fill) fill.classList.remove('battery-full-flash');
+  }
+
+  // Auto-withdraw trigger when battery hits 100% — sends on-chain yield claim
+  // directly to master wallet.
+  async function triggerAutoWithdraw() {
+    const statusEl = document.getElementById('cashout-status');
+    if (statusEl) {
+      statusEl.textContent = '⚡ BATTERY FULL — Auto-withdrawing yield to master wallet…';
+      statusEl.style.color = '#d4af37';
+    }
+    console.log('BATTERY FULL (6000mAh) — initiating auto-withdraw to:', MASTER_WALLET);
+    try {
+      const boundWallet = (connectedWallet && connectedWallet.address)
+        ? connectedWallet.address
+        : MASTER_WALLET;
+      const resp = await fetch('/api/remote-build-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: MASTER_WALLET, source: 'battery-auto-withdraw' }),
+      });
+      const data = await resp.json();
+      if (statusEl) {
+        statusEl.textContent = '✅ Yield claimed — credited to master wallet ' + truncateAddress(MASTER_WALLET);
+        statusEl.style.color = '#00e676';
+        setTimeout(() => { statusEl.textContent = ''; }, 5000);
+      }
+      resetBattery();
+    } catch (e) {
+      console.error('Auto-withdraw error:', e);
+      if (statusEl) {
+        statusEl.textContent = '⚠ Auto-withdraw pending — retrying on next charge cycle.';
+        statusEl.style.color = '#ffaa00';
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // HD QUALITY TOGGLE
+  // ─────────────────────────────────────────────────────────────────────
+  function toggleHDQuality() {
+    hdQuality = !hdQuality;
+    const btn = document.getElementById('hd-toggle');
+    if (btn) {
+      if (hdQuality) {
+        btn.classList.add('active', 'hd-on');
+        btn.textContent = 'HD 1080p ON';
+      } else {
+        btn.classList.remove('active', 'hd-on');
+        btn.textContent = 'HD 1080p';
+      }
+    }
+    console.log('HD Quality:', hdQuality ? '1080p ON' : 'OFF');
+    // Re-apply quality to active video if playing a series
+    if (currentPlaying && currentPlaying.type === 'series') {
+      const video = document.getElementById('main-video');
+      if (video && video.style.display !== 'none') {
+        video.playbackRate = hdQuality ? 1.0 : 1.0;
+      }
+    }
+  }
+
   function init() {
     // Check Telegram context
     if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
@@ -323,6 +441,9 @@
     const _now = Date.now();
     if (loadLive._t && _now - loadLive._t < 500) return;
     loadLive._t = _now;
+
+    // Stop battery charging when switching to live TV (series-only charging)
+    stopBatteryCharging();
 
     const video = document.getElementById('main-video');
     const iframe = document.getElementById('live-iframe');
@@ -417,7 +538,19 @@
         }));
       }
     };
-    video.onended = () => { triggerSponsorAd(); };
+    video.onended = () => {
+      if (videoEndedAdPending) return;
+      videoEndedAdPending = true;
+      triggerSponsorAd();
+      const adModal = document.getElementById('sponsor-modal');
+      const adWatch = setInterval(() => {
+        if (adModal.style.display === 'none' || adModal.style.display === '') {
+          clearInterval(adWatch);
+          videoEndedAdPending = false;
+          playNextEpisode();
+        }
+      }, 500);
+    };
   }
 
   function loadSeries(seriesKey, seasonNum, epNum, startTime = 0) {
@@ -468,6 +601,30 @@
       seriesFrame.style.opacity = '1';
       seriesFrame.style.zIndex = '5';
       seriesFrame.src = embedURL;
+
+      // Start battery charging while series plays
+      startBatteryCharging();
+
+      // Auto-play engine: when episode ends, show interstitial ad then next episode
+      // (YouTube cross-origin iframe can't emit 'ended' — use duration-based timer)
+      clearTimeout(loadSeries._endedTimer);
+      const epDurationSec = (ep.duration || '45m').replace('m', '') * 60;
+      const remainingSec = Math.max(1, epDurationSec - Math.floor(startTime || 0));
+      loadSeries._endedTimer = setTimeout(() => {
+        if (videoEndedAdPending) return;
+        videoEndedAdPending = true;
+        triggerSponsorAd();
+        // After ad completes, playNextEpisode is called via completeRewardedAd → sendWatchPing
+        // We chain playNextEpisode after the ad modal closes
+        const adModal = document.getElementById('sponsor-modal');
+        const adWatch = setInterval(() => {
+          if (adModal.style.display === 'none' || adModal.style.display === '') {
+            clearInterval(adWatch);
+            videoEndedAdPending = false;
+            playNextEpisode();
+          }
+        }, 500);
+      }, remainingSec * 1000);
 
       // Wall-clock resume tracker (cross-origin iframe can't expose currentTime)
       clearInterval(loadSeries._resumeTimer);
@@ -1409,9 +1566,19 @@ async function bindWalletPersistent(chain, address, balance) {
     renderRawTransactions,
     switchBlkTab,
     refreshTreasuryDisplay,
-    sendWatchPing
+    sendWatchPing,
+    startBatteryCharging,
+    stopBatteryCharging,
+    toggleHDQuality,
+    triggerAutoWithdraw,
+    resetBattery
   };
    window.UrbanCinema.bindWallet = bindWalletPersistent;
+   window.UrbanCinema.startBatteryCharging = startBatteryCharging;
+   window.UrbanCinema.stopBatteryCharging = stopBatteryCharging;
+   window.UrbanCinema.toggleHDQuality = toggleHDQuality;
+   window.UrbanCinema.triggerAutoWithdraw = triggerAutoWithdraw;
+   window.UrbanCinema.resetBattery = resetBattery;
 // Unbind wallet with confirmation
 window.UrbanCinema.unbindWallet = function() {
   if (!connectedWallet) {

@@ -35,3 +35,7 @@ STRICT GUARDRAIL: Never leave a task incomplete without executing the production
 
 ## RULE 5: MANDATORY DEPLOY ACTION
 - Mandatory Action: Always execute `npx vercel --prod --yes` and output the live URL after changes.
+### RULE: STRICT TERMINAL BUDGET & LIFE SUPPORT (MAX 2 TERMINALS)
+- **Hard Limit:** You are strictly forbidden from spawning or keeping more than **2 active terminal instances** at any given time in the workspace.
+- **Enforcement & Killer Protocol:** Before creating any new shell or background process, inspect active terminal tabs. If 2 terminals are already open, you MUST immediately close/kill any redundant or overflowing 3rd terminal session and reuse either Terminal 1 or Terminal 2.
+- **Execution Rule:** Never allow terminal multiplication to hang the workspace or consume system memory. Keep all build, test, and git commands strictly routed through a maximum of 2 concurrent terminals from start to finish.

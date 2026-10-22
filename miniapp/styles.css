@@ -1320,3 +1320,123 @@ html, body {
   .earn-btn { width: 100%; text-align: center; }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   14-COLOR GLITCHING SOLAR CHARGING PANEL & BATTERY EARNINGS ENGINE
+   (Additive — no existing rules touched)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* 14-color rainbow / glitch keyframe for the solar panel badge */
+@keyframes solar-glitch {
+  0%   { filter: hue-rotate(0deg); color: #ff0000; text-shadow: 0 0 8px #ff0000; }
+  7%   { filter: hue-rotate(51deg); color: #ff7f00; text-shadow: 0 0 12px #ff7f00; }
+  14%  { filter: hue-rotate(102deg); color: #ffff00; text-shadow: 0 0 16px #ffff00; }
+  21%  { filter: hue-rotate(153deg); color: #7fff00; text-shadow: 0 0 20px #7fff00; }
+  28%  { filter: hue-rotate(204deg); color: #00ff00; text-shadow: 0 0 24px #00ff00; }
+  35%  { filter: hue-rotate(255deg); color: #00ff7f; text-shadow: 0 0 28px #00ff7f; }
+  42%  { filter: hue-rotate(306deg); color: #00ffff; text-shadow: 0 0 32px #00ffff; }
+  49%  { filter: hue-rotate(357deg); color: #007fff; text-shadow: 0 0 36px #007fff; }
+  56%  { filter: hue-rotate(408deg); color: #0000ff; text-shadow: 0 0 40px #0000ff; }
+  63%  { filter: hue-rotate(459deg); color: #7f00ff; text-shadow: 0 0 44px #7f00ff; }
+  70%  { filter: hue-rotate(510deg); color: #ff00ff; text-shadow: 0 0 48px #ff00ff; }
+  77%  { filter: hue-rotate(561deg); color: #ff007f; text-shadow: 0 0 52px #ff007f; }
+  84%  { filter: hue-rotate(612deg); color: #ff0000; text-shadow: 0 0 56px #ff0000; }
+  91%  { filter: hue-rotate(663deg); color: #ff7f00; text-shadow: 0 0 60px #ff7f00; }
+  100% { filter: hue-rotate(714deg); color: #ffff00; text-shadow: 0 0 64px #ffff00; }
+}
+
+.solar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  animation: solar-glitch 3s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+/* Battery charging bar container */
+.battery-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+}
+
+.battery-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.battery-bar-wrap {
+  width: 70px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+
+.battery-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00e676, #00f2fe, #d4af37);
+  border-radius: 99px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.4);
+}
+
+.battery-bar-fill.charging {
+  animation: battery-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes battery-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.battery-pct {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--emerald);
+  min-width: 28px;
+  text-align: right;
+}
+
+.battery-full-flash {
+  animation: battery-full-flash 0.6s ease-in-out 3;
+}
+
+@keyframes battery-full-flash {
+  0%, 100% { box-shadow: 0 0 0 rgba(0, 230, 118, 0); }
+  50% { box-shadow: 0 0 20px rgba(0, 230, 118, 0.8); }
+}
+
+/* HD quality toggle pill */
+.hd-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.hd-toggle.active {
+  background: rgba(0, 242, 254, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+}
+
+.hd-toggle.hd-on {
+  background: rgba(0, 230, 118, 0.15);
+  border-color: var(--emerald);
+  color: var(--emerald);
+}
+
