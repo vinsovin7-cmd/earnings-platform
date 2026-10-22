@@ -1039,6 +1039,17 @@ async def process_admin_broadcast(message: types.Message, state: FSMContext):
     )
 
 
+# --- "HI" triggers gender selection keyboard for new user onboarding ---
+  @dp.message(F.text.in_(["HI", "Hi", "hi", "hello", "Hello", "HEY", "hey", "HELLO"]))
+  async def handle_hi_greeting(message: types.Message, state: FSMContext):
+      await state.clear()
+      await state.set_state(Onboarding.gender)
+      await message.answer(
+          "Welcome to **Sreymara Luxury Lounge & Cinema** 💎\n\n"
+          "Let's get your profile ready. **Select your gender below:**",
+          reply_markup=kb.gender_keyboard()
+      )
+
 # --- LIVE RELAY, ANTI-LEAK & CONVERSATIONAL CATCH-ALL (registered LAST) ---
 @dp.message()
 async def universal_handler(message: types.Message, state: FSMContext):
