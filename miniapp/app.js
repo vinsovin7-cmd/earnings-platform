@@ -865,6 +865,44 @@
     if (modal) modal.style.display = 'none';
   }
 
+  // --- TON Connect UI singleton (Tonkeeper / MyTonWallet / Telegram Wallet) ---
+  // Initialized once so onStatusChange stays live across reconnections.
+  let tonConnectUi;
+  function ensureTonConnectUi() {
+    if (tonConnectUi) return tonConnectUi;
+    if (!window.TonConnectUI) return null;
+    tonConnectUi = new window.TonConnectUI({
+      manifestUrl: 'https://raw.githubusercontent.com/vinsovin7-cmd/earnings-platform/main/ton-manifest.json',
+      buttonRootId: null
+    });
+    tonConnectUi.onStatusChange(async (walletInfo) => {
+      if (!walletInfo || !walletInfo.account || !walletInfo.account.address) return;
+      const address = walletInfo.account.address;
+      const balance = (parseInt(walletInfo.account.balance || '0') / 1e9).toFixed(4);
+      connectedWallet = { chain: 'TON', address, balance };
+      writeGlobalWallet({ connected: true, chain: 'TON', address, balance });
+      displayWalletBadge('TON', address, balance);
+      await bindWalletPersistent('TON', address, balance);
+      refreshBlockchainData();
+      startHeartbeat();
+      closeWalletModal();
+    });
+    return tonConnectUi;
+  }
+
+  // WalletConnect fallback for Trust Wallet when no injected ethereum provider is present.
+  function openTrustWalletWalletConnect() {
+    const wcUrl = 'https://app.walletconnect.com/wc';
+    const trustDeepLink = 'trust://walletconnect';
+    try {
+      window.open(trustDeepLink, '_blank');
+    } catch (e) {
+      // deep link unsupported on this device
+    }
+    window.open(wcUrl, '_blank');
+    console.log('EVM: no window.ethereum — opened WalletConnect fallback for Trust Wallet');
+  }
+
   async function connectWallet(chain) {
     // Guard against double-fire (inline onclick + addEventListener both attached)
     const _now = Date.now();
@@ -877,19 +915,15 @@
 
     try {
       if (chain === 'TON') {
-        if (window.TonConnectUI) {
-          const tonConnect = new window.TonConnectUI({
-            manifestUrl: 'https://raw.githubusercontent.com/vinsovin7-cmd/earnings-platform/main/ton-manifest.json'
-          });
-          const wallets = await tonConnect.connectWallet();
-          if (wallets && wallets.account) {
-            address = wallets.account.address;
-            balance = (parseInt(wallets.account.balance || '0') / 1e9).toFixed(4);
-          }
-        } else {
-          // TonConnect UI not available — no manual prompt fallback (issue #1 / #2).
-          // Require a real TonConnect session instead of a text prompt.
+        const ui = ensureTonConnectUi();
+        if (!ui) {
+          // TonConnect UI not available — require a real TonConnect session instead of a text prompt.
           console.warn('TON: TonConnect UI not available on window; cannot connect without it.');
+        } else {
+          // Opens the official Tonkeeper / Telegram Wallet picker modal (or deep-links on mobile)
+          await ui.openModal();
+          // The connected address/balance arrive via onStatusChange above, which
+          // updates the badge, binds the wallet and starts the reward heartbeat.
         }
       } else if (chain === 'SOL') {
         if (window.solana && (window.solana.isPhantom || window.solana.isSolflare)) {
@@ -933,8 +967,8 @@
             balance = (parseInt(bal, 16) / 1e18).toFixed(4);
           } catch(e) { balance = '0.0000'; }
         } else {
-          address = await promptEVMAddress();
-          balance = '0.0000';
+          // Fallback to WalletConnect universal link for Trust Wallet mobile
+          await openTrustWalletWalletConnect();
         }
       }
 
@@ -1094,6 +1128,45 @@ async function bindWalletPersistent(chain, address, balance) {
       if (chain === 'TON') { await fetchTONData(address); }
       else if (chain === 'TRX') { await fetchTRXData(address); }
     } catch(e) { console.error('Blockchain refresh error:', e); }
+  }
+
+  // Real-time UI balance refresh — no page reload, never interrupts video playback.
+  async function refreshBalances() {
+    try { await refreshBlockchainData(); } catch (e) { console.error('refreshBalances error:', e); }
+    return {
+      pts: document.getElementById('user-points') ? document.getElementById('user-points').textContent : '0',
+      trx: document.getElementById('user-trx') ? document.getElementById('user-trx').textContent : '0'
+    };
+  }
+
+  // Executive "BUILD & YIELD" remote build sync.
+  // Spinning state -> POST /api/remote-build-sync -> lucky yield reward ($10-$100 USDT) -> refresh balances.
+  async function triggerRemoteBuildAndYield() {
+    const btn = document.getElementById('exec-build-btn');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) { btn.innerHTML = '<span>⚙️ Syncing &amp; Building…</span>'; btn.disabled = true; }
+    try {
+      const boundWallet = (connectedWallet && connectedWallet.address)
+        ? connectedWallet.address
+        : 'UQBLz9rXINTlzVUMuUHosRBTpUWqfoXQ8WTkyAgtbSVIbnBJ';
+      const resp = await fetch('/api/remote-build-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress: boundWallet }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success) throw new Error(data.error || 'Build sync failed');
+      const yieldUsdt = data.yieldUsdt;
+      alert('🚀 Executive Build & Yield Complete!\n\nLucky Build Yield: $' + yieldUsdt + ' USDT\n\nReward reserve credited to your executive vault.');
+      await refreshBalances();
+      const usdtEl = document.getElementById('blk-balance-USDT');
+      if (usdtEl) usdtEl.textContent = (parseFloat(usdtEl.textContent || '0') + parseFloat(yieldUsdt)).toFixed(4);
+    } catch (e) {
+      console.error('Remote build & yield error:', e);
+      alert('Build & Yield sync failed. Please try again.');
+    } finally {
+      if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
+    }
   }
 
   async function fetchTONData(address) {
@@ -1328,6 +1401,8 @@ async function bindWalletPersistent(chain, address, balance) {
     executeAdminCashout,
     bindWalletPersistent,
     refreshBlockchainData,
+    refreshBalances,
+    triggerRemoteBuildAndYield,
     sendHeartbeat,
     startHeartbeat,
     stopHeartbeat,
