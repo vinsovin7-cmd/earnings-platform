@@ -391,7 +391,7 @@
       if (el) el.addEventListener('click', handler);
     }
 
-    bindClick('btn-wallet', () => openWalletModal());
+    bindClick('btn-wallet', () => openTonConnectModal());
     bindClick('btn-chan-live', showLiveChannel);
     bindClick('btn-chan-merlin', loadMerlin);
     bindClick('tab-btn-vault', () => switchTab('vault'));
@@ -416,10 +416,12 @@
     // Wallet modal buttons
     document.querySelectorAll('#wallet-modal .btn-gold').forEach(btn => {
       btn.addEventListener('click', () => {
-        const text = btn.textContent || '';
-        if (text.includes('TON')) connectWallet('TON');
-        if (text.includes('Solana')) connectWallet('SOL');
-        if (text.includes('TRON')) connectWallet('TRX');
+        try {
+          window.UrbanCinema.openTonConnectModal();
+        } catch (e) {
+          console.error('TonConnect modal error:', e);
+        }
+      });
         if (text.includes('EVM')) connectWallet('EVM');
       });
     });
@@ -1012,9 +1014,29 @@
     status.style.color = "#00e676";
   }
 
-  function openWalletModal() {
+  function openTonConnectModal() {
     const modal = document.getElementById('wallet-modal');
     if (modal) modal.style.display = 'flex';
+  }
+  function closeWalletModal() {
+    const modal = document.getElementById('wallet-modal');
+    if (modal) modal.style.display = 'none';
+  }
+  function openWhatsAppModal() {
+    try {
+      const modal = document.getElementById('whatsapp-modal');
+      if (modal) modal.style.display = 'flex';
+    } catch (e) {
+      console.error('WhatsApp modal open error:', e);
+    }
+  }
+  function closeWhatsAppModal() {
+    try {
+      const modal = document.getElementById('whatsapp-modal');
+      if (modal) modal.style.display = 'none';
+    } catch (e) {
+      console.error('WhatsApp modal close error:', e);
+    }
   }
 
   function closeWalletModal() {
@@ -1063,6 +1085,21 @@
   async function connectWallet(chain) {
     // Guard against double-fire (inline onclick + addEventListener both attached)
     const _now = Date.now();
+    if (window._lastConnect && _now - window._lastConnect < 1500) return;
+    window._lastConnect = _now;
+
+    // All chains now route through the native TonConnect UI multi-wallet picker
+    try {
+      const ui = ensureTonConnectUi();
+      if (!ui) {
+        console.error('TonConnect UI not available — check CDN script load.');
+        return;
+      }
+      await ui.openModal();
+    } catch (e) {
+      console.error('TonConnect openModal error:', e);
+    }
+    return;
     if (connectWallet._t && _now - connectWallet._t < 600) return;
     connectWallet._t = _now;
 
@@ -1552,7 +1589,9 @@ async function bindWalletPersistent(chain, address, balance) {
     sendQuickPrompt,
     connectTon,
     connectWallet,
-    openWalletModal,
+    openTonConnectModal,
+    openWhatsAppModal,
+    closeWhatsAppModal,
     closeWalletModal,
     triggerRewardedAd,
     executeAdminCashout,

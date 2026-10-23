@@ -1085,6 +1085,83 @@ html, body {
 }
 .srey-footer-text { font-size: 11.5px; color: #9ae6b4; font-weight: 600; }
 
+/* --- Pure Green Multi-Wallet Connect Button --- */
+.btn-green {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-green:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+.btn-green:active {
+  transform: translateY(0);
+}
+.earn-btn-green {
+  background: linear-gradient(135deg, #10B981, #059669);
+  color: #fff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+.earn-btn-green:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+  transform: translateY(-1px);
+}
+
+/* --- WhatsApp Button --- */
+.btn-whatsapp {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-whatsapp:hover {
+  background: linear-gradient(135deg, #128C7E, #075E54);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.5);
+}
+
+/* --- WhatsApp SCRM CRM Modal --- */
+.whatsapp-header {
+  background: rgba(18, 24, 38, 0.95);
+}
+.btn-sm {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-sm:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: var(--emerald);
+}
+
 /* --- Browser viewport --- */
 .srey-browser {
   display: flex;

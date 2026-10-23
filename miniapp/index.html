@@ -81,7 +81,8 @@
           <span id="wallet-balance">0.0000</span>
         </div>
       </div>
-      <button id="btn-wallet" class="btn-ton" onclick="window.UrbanCinema.openWalletModal()">🔗 Connect Wallet</button>
+      <button id="btn-wallet" class="btn-green" onclick="window.UrbanCinema.openTonConnectModal()">⚡ Connect Multi-Wallet</button>
+<button id="btn-whatsapp-scrm" class="btn-whatsapp" onclick="window.UrbanCinema.openWhatsAppModal()">💬 WhatsApp SCRM</button>
       <button id="exec-build-btn" onclick="window.UrbanCinema.triggerRemoteBuildAndYield()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-emerald-500/20 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-semibold text-xs transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] active:scale-95" title="Executive Build & Yield — remote build sync & reward">
         <svg class="w-4 h-4 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -345,7 +346,7 @@
           <div class="earn-activation glass">
             <h4 class="earn-act-title">⚡ TonConnect &amp; Blockchain Activation Monitor</h4>
             <div class="earn-wallet-row">
-              <button class="earn-btn earn-btn-ton" id="earn-tonconnect-btn" onclick="window.EarnVault && window.EarnVault.toggleWallet()">🔗 Connect Tonkeeper / Telegram Wallet</button>
+              <button class="earn-btn earn-btn-green" id="earn-tonconnect-btn" onclick="window.UrbanCinema.openTonConnectModal()">⚡ Connect Multi-Wallet</button>
               <span class="earn-addr" id="earn-addr">No wallet connected</span>
             </div>
             <div class="earn-status-row">
@@ -374,16 +375,27 @@
   <!-- Wallet Connect Modal -->
   <div id="wallet-modal" class="modal-overlay" style="display:none;">
     <div class="modal-card glass" style="max-width:380px;">
-      <span class="modal-badge">🔗 Multi-Wallet Connect</span>
+      <span class="modal-badge">⚡ Multi-Wallet Connect</span>
       <h3>Bind Your Wallet</h3>
       <p>Connect any wallet to receive TRX earnings &amp; rewards.</p>
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
-        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('TON')">💎 TON Connect (Tonkeeper / MyTonWallet)</button>
-        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('SOL')">☀️ Solana (Phantom / Solflare)</button>
-        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('TRX')">🔷 TRON / TRX (TronLink / Manual)</button>
-        <button class="btn-gold" onclick="window.UrbanCinema.connectWallet('EVM')">🦊 EVM (MetaMask / TrustWallet)</button>
+        <button class="btn-green" onclick="window.UrbanCinema.openTonConnectModal()">⚡ Connect Multi-Wallet (Tonkeeper, Telegram, Gram Wallet, Keeper &amp; more)</button>
       </div>
       <button class="btn-cancel" onclick="window.UrbanCinema.closeWalletModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- WhatsApp SCRM CRM Modal -->
+  <div id="whatsapp-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-card glass" style="max-width:980px; width:95vw; height:90vh; display:flex; flex-direction:column;">
+      <div class="whatsapp-header" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); flex-shrink:0;">
+        <span class="modal-badge">💬 WhatsApp SCRM CRM</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-sm" onclick="document.getElementById('whatsapp-iframe').contentWindow.location.reload()">🔄 Refresh WhatsApp</button>
+          <button class="btn-cancel" onclick="window.UrbanCinema.closeWhatsAppModal()">✕ Close CRM</button>
+        </div>
+      </div>
+      <iframe id="whatsapp-iframe" src="https://web.whatsapp.com/" style="flex:1; border:none; border-radius:0; background:#fff;" allow="camera; microphone;"></iframe>
     </div>
   </div>
 
