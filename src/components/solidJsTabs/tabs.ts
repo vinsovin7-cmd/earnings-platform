@@ -1062,4 +1062,4 @@ const _origAddMembersInit = (AppAddMembersTab.prototype as any).init;
   return _origAddMembersInit.call(this, payload, overrideTitle || payload.title);
 };
 
-export const AppCyberNodeTab = scaffoldSolidJSTab({ title: 'CyberNode', getComponentModule: () => import('cyberNodeTab.tsx'), });
+export const AppCyberNodeTab = scaffoldSolidJSTab({ title: 'CyberNode', getComponentModule: () => import('./cyberNodeTab.tsx'), });
