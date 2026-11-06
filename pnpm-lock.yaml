@@ -100,7 +100,7 @@ importers:
         specifier: ^16.3.0
         version: 16.3.0(@ton/core@0.63.1(@ton/crypto@3.3.0))(@ton/crypto@3.3.0)(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       '@tonconnect/ui':
-        specifier: 3.0.2
+        specifier: ^3.0.2
         version: 3.0.2(encoding@0.1.13)
       temml:
         specifier: ^0.13.3

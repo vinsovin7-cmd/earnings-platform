@@ -422,8 +422,6 @@
           console.error('TonConnect modal error:', e);
         }
       });
-        if (text.includes('EVM')) connectWallet('EVM');
-      });
     });
 
     // Initialize blockchain inspector if wallet already bound
