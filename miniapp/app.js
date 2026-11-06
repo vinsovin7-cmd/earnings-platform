@@ -1067,121 +1067,115 @@
     return tonConnectUi;
   }
 
-  // WalletConnect fallback for Trust Wallet when no injected ethereum provider is present.
-  function openTrustWalletWalletConnect() {
-    const wcUrl = 'https://app.walletconnect.com/wc';
-    const trustDeepLink = 'trust://walletconnect';
+  // ─────────────────────────────────────────────────────────────────────
+  // WALLET CONNECT — Pair / Direct Link for TON wallets
+  // ─────────────────────────────────────────────────────────────────────
+
+  // Wallet deep-link schemes (Tonkeeper, Telegram Wallet, MyTonWallet, Keeper)
+  const WALLET_DEEP_LINKS = {
+    tonkeeper:   'tonkeeper://connect/app',
+    telegram:    'https://t.me/wallet',
+    mytonwallet: 'https://app.mytonwallet.com/connect',
+    keeper:      'keeper://connect/app'
+  };
+
+  // WalletConnect v2 pairing URIs (relay server + app metadata)
+  const WALLET_CONNECT_PAIR = {
+    tonkeeper:   'https://relay.walletconnect.com/wc?uri=' + encodeURIComponent('wc@2@2?relay-protocol=synching&sym-key=...'),
+    telegram:    'https://relay.walletconnect.com/wc',
+    mytonwallet: 'https://relay.walletconnect.com/wc',
+    keeper:      'https://relay.walletconnect.com/wc'
+  };
+
+  function buildReturnUrl() {
+    const base = window.location.origin + window.location.pathname;
+    return encodeURIComponent(base + '#wallet-connected=1');
+  }
+
+  // Pair a wallet via WalletConnect protocol — opens the wallet's pairing flow
+  async function pairWallet(walletType) {
+    closeWalletModal();
     try {
-      window.open(trustDeepLink, '_blank');
+      // First try the native TonConnect UI which handles WalletConnect pairing
+      // across all TON wallets (Tonkeeper, Telegram Wallet, MyTonWallet, Keeper)
+      const ui = ensureTonConnectUi();
+      if (ui) {
+        await ui.openModal();
+        logWalletEvent(walletType, 'pair_attempted');
+        return;
+      }
+      // Fallback: open WalletConnect universal pairing page
+      const wcUrl = WALLET_CONNECT_PAIR[walletType] || 'https://app.walletconnect.com/wc';
+      window.open(wcUrl, '_blank');
+      logWalletEvent(walletType, 'pair_fallback');
     } catch (e) {
-      // deep link unsupported on this device
+      console.error('Pair wallet error:', e);
+      alert('Wallet pairing failed. Please try again.');
     }
-    window.open(wcUrl, '_blank');
-    console.log('EVM: no window.ethereum — opened WalletConnect fallback for Trust Wallet');
+  }
+
+  // Directly link the app to a wallet via deep link — opens the wallet app directly
+  function linkWallet(walletType) {
+    closeWalletModal();
+    try {
+      const scheme = WALLET_DEEP_LINKS[walletType];
+      if (!scheme) {
+        console.warn('No deep link scheme for wallet:', walletType);
+        return;
+      }
+      let targetUrl = scheme;
+      if (walletType === 'tonkeeper' || walletType === 'keeper') {
+        // Append return URL so the wallet can redirect back after connecting
+        targetUrl += '?return_url=' + buildReturnUrl();
+      }
+      window.open(targetUrl, '_blank');
+      logWalletEvent(walletType, 'direct_link');
+      // Show a hint that the app should now appear in the wallet's connected apps
+      setTimeout(() => {
+        if (walletType === 'keeper') {
+          console.log('Keeper Wallet: app linked — check "Connected Apps" inside Keeper Wallet.');
+        }
+      }, 1000);
+    } catch (e) {
+      console.error('Link wallet error:', e);
+      alert('Direct link failed. Please try again.');
+    }
+  }
+
+  function logWalletEvent(walletType, action) {
+    try {
+      const evt = new CustomEvent('srey-wallet-event', {
+        detail: { wallet: walletType, action, ts: Date.now() }
+      });
+      window.dispatchEvent(evt);
+    } catch (e) { /* noop */ }
   }
 
   async function connectWallet(chain) {
-    // Guard against double-fire (inline onclick + addEventListener both attached)
+    // Guard against double-fire
     const _now = Date.now();
     if (window._lastConnect && _now - window._lastConnect < 1500) return;
     window._lastConnect = _now;
 
-    // All chains now route through the native TonConnect UI multi-wallet picker
+    // All chains route through the native TonConnect UI multi-wallet picker
+    // (Tonkeeper, Telegram Wallet, MyTonWallet, Keeper & more)
     try {
       const ui = ensureTonConnectUi();
       if (!ui) {
         console.error('TonConnect UI not available — check CDN script load.');
+        alert('Wallet connect UI not available. Please refresh and try again.');
         return;
       }
       await ui.openModal();
+      // The connected address/balance arrive via onStatusChange in ensureTonConnectUi(),
+      // which updates the badge, binds the wallet, starts the reward heartbeat, and
+      // closes the modal automatically.
     } catch (e) {
       console.error('TonConnect openModal error:', e);
-    }
-    return;
-    if (connectWallet._t && _now - connectWallet._t < 600) return;
-    connectWallet._t = _now;
-
-    let address = '';
-    let balance = '0';
-    let chainLabel = chain;
-
-    try {
-      if (chain === 'TON') {
-        const ui = ensureTonConnectUi();
-        if (!ui) {
-          // TonConnect UI not available — require a real TonConnect session instead of a text prompt.
-          console.warn('TON: TonConnect UI not available on window; cannot connect without it.');
-        } else {
-          // Opens the official Tonkeeper / Telegram Wallet picker modal (or deep-links on mobile)
-          await ui.openModal();
-          // The connected address/balance arrive via onStatusChange above, which
-          // updates the badge, binds the wallet and starts the reward heartbeat.
-        }
-      } else if (chain === 'SOL') {
-        if (window.solana && (window.solana.isPhantom || window.solana.isSolflare)) {
-          const resp = await window.solana.connect();
-          address = resp.publicKey.toString();
-          try {
-            const balanceResp = await window.solana.request({
-              method: 'getBalance',
-              params: [address]
-            });
-            balance = (balanceResp / 1e9).toFixed(4);
-          } catch(e) { balance = '0.0000'; }
-        } else {
-          address = await promptSolanaAddress();
-          balance = '0.0000';
-        }
-      } else if (chain === 'TRX') {
-        if (window.tronWeb && window.tronWeb.defaultAddress) {
-          address = window.tronWeb.defaultAddress.base58;
-          try {
-            const bal = await window.tronWeb.trx.getBalance(address);
-            balance = (bal / 1e6).toFixed(4);
-          } catch(e) { balance = '0.0000'; }
-        } else if (window.tronLink) {
-          const accounts = await window.tronLink.request({ method: 'tron_requestAccounts' });
-          address = accounts[0] || '';
-          balance = '0.0000';
-        } else {
-          address = await promptTRXAddress();
-          balance = '0.0000';
-        }
-      } else if (chain === 'EVM') {
-        if (window.ethereum) {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          address = accounts[0] || '';
-          try {
-            const bal = await window.ethereum.request({
-              method: 'eth_getBalance',
-              params: [address, 'latest']
-            });
-            balance = (parseInt(bal, 16) / 1e18).toFixed(4);
-          } catch(e) { balance = '0.0000'; }
-        } else {
-          // Fallback to WalletConnect universal link for Trust Wallet mobile
-          await openTrustWalletWalletConnect();
-        }
-      }
-
-      if (address) {
-        connectedWallet = { chain: chainLabel, address: address, balance: balance };
-        writeGlobalWallet({ connected: true, chain: chainLabel, address: address, balance: balance });
-        displayWalletBadge(chainLabel, address, balance);
-        await bindWalletPersistent(chainLabel, address, balance);
-        refreshBlockchainData();
-        startHeartbeat();
-        closeWalletModal();
-      }
-    } catch(e) {
-      console.error('Wallet connect error:', e);
       alert('Wallet connection failed. Please try again.');
     }
+    return;
   }
-
-  function promptSolanaAddress() { return prompt('Enter your Solana wallet address:'); }
-  function promptTRXAddress() { return prompt('Enter your TRON/TRX wallet address (T...):'); }
-  function promptEVMAddress() { return prompt('Enter your EVM wallet address (0x...):'); }
 
   function displayWalletBadge(chain, address, balance) {
     const badge = document.getElementById('wallet-badge');
@@ -1608,7 +1602,9 @@ async function bindWalletPersistent(chain, address, balance) {
     stopBatteryCharging,
     toggleHDQuality,
     triggerAutoWithdraw,
-    resetBattery
+    resetBattery,
+    pairWallet,
+    linkWallet
   };
    window.UrbanCinema.bindWallet = bindWalletPersistent;
    window.UrbanCinema.startBatteryCharging = startBatteryCharging;

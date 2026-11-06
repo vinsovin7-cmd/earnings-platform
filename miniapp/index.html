@@ -372,15 +372,78 @@
     </div>
   </div>
 
-  <!-- Wallet Connect Modal -->
+  <!-- Wallet Connect Modal — Multi-Wallet Picker with Pair / Direct Link -->
   <div id="wallet-modal" class="modal-overlay" style="display:none;">
-    <div class="modal-card glass" style="max-width:380px;">
-      <span class="modal-badge">⚡ Multi-Wallet Connect</span>
-      <h3>Bind Your Wallet</h3>
-      <p>Connect any wallet to receive TRX earnings &amp; rewards.</p>
-      <div style="display:flex; flex-direction:column; gap:10px; margin-top:12px;">
-        <button class="btn-green" onclick="window.UrbanCinema.openTonConnectModal()">⚡ Connect Multi-Wallet (Tonkeeper, Telegram, Gram Wallet, Keeper &amp; more)</button>
+    <div class="modal-card glass" style="max-width:440px;">
+      <span class="modal-badge">🔗 Wallet Connect</span>
+      <h3>Connect Your Wallet</h3>
+      <p>Select a wallet to pair or directly link this app.</p>
+
+      <div class="wallet-list">
+        <!-- Tonkeeper -->
+        <div class="wallet-item">
+          <div class="wallet-info">
+            <div class="wallet-icon">💎</div>
+            <div class="wallet-details">
+              <div class="wallet-name">Tonkeeper</div>
+              <div class="wallet-desc">Recommended — TON ecosystem</div>
+            </div>
+          </div>
+          <div class="wallet-actions">
+            <button class="wallet-btn wallet-btn-pair" onclick="window.UrbanCinema.pairWallet('tonkeeper')">Pair</button>
+            <button class="wallet-btn wallet-btn-link" onclick="window.UrbanCinema.linkWallet('tonkeeper')">Direct Link</button>
+          </div>
+        </div>
+
+        <!-- Telegram Wallet -->
+        <div class="wallet-item">
+          <div class="wallet-info">
+            <div class="wallet-icon">📱</div>
+            <div class="wallet-details">
+              <div class="wallet-name">Telegram Wallet</div>
+              <div class="wallet-desc">Built into Telegram</div>
+            </div>
+          </div>
+          <div class="wallet-actions">
+            <button class="wallet-btn wallet-btn-pair" onclick="window.UrbanCinema.pairWallet('telegram')">Pair</button>
+            <button class="wallet-btn wallet-btn-link" onclick="window.UrbanCinema.linkWallet('telegram')">Direct Link</button>
+          </div>
+        </div>
+
+        <!-- MyTonWallet -->
+        <div class="wallet-item">
+          <div class="wallet-info">
+            <div class="wallet-icon">🦊</div>
+            <div class="wallet-details">
+              <div class="wallet-name">MyTonWallet</div>
+              <div class="wallet-desc">Web-based TON wallet</div>
+            </div>
+          </div>
+          <div class="wallet-actions">
+            <button class="wallet-btn wallet-btn-pair" onclick="window.UrbanCinema.pairWallet('mytonwallet')">Pair</button>
+            <button class="wallet-btn wallet-btn-link" onclick="window.UrbanCinema.linkWallet('mytonwallet')">Direct Link</button>
+          </div>
+        </div>
+
+        <!-- Keeper Wallet -->
+        <div class="wallet-item">
+          <div class="wallet-info">
+            <div class="wallet-icon">🛡️</div>
+            <div class="wallet-details">
+              <div class="wallet-name">Keeper Wallet</div>
+              <div class="wallet-desc">Secure multi-chain wallet</div>
+            </div>
+          </div>
+          <div class="wallet-actions">
+            <button class="wallet-btn wallet-btn-pair" onclick="window.UrbanCinema.pairWallet('keeper')">Pair</button>
+            <button class="wallet-btn wallet-btn-link" onclick="window.UrbanCinema.linkWallet('keeper')">Direct Link</button>
+          </div>
+        </div>
       </div>
+
+      <div class="wallet-divider"><span>Or open the full wallet picker</span></div>
+
+      <button class="btn-green" onclick="window.UrbanCinema.openTonConnectModal()">⚡ Open Wallet Picker (All Wallets)</button>
       <button class="btn-cancel" onclick="window.UrbanCinema.closeWalletModal()">Cancel</button>
     </div>
   </div>
