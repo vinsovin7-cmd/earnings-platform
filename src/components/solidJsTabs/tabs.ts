@@ -1061,3 +1061,5 @@ const _origAddMembersInit = (AppAddMembersTab.prototype as any).init;
 (AppAddMembersTab.prototype as any).init = function(payload: AppAddMembersTabPayload, overrideTitle?: LangPackKey) {
   return _origAddMembersInit.call(this, payload, overrideTitle || payload.title);
 };
+
+export const AppCyberNodeTab = scaffoldSolidJSTab({ title: 'CyberNode', getComponentModule: () => import('cyberNodeTab.tsx'), });
