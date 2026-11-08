@@ -24,6 +24,7 @@ import {CinemaMonetizationManager, createCinemaMonetizationManager, WithdrawalRe
 import '@/cinema.scss';
 
 const LIVE_STREAM_URL = 'https://live-hls-web-aje.getaj.net/AJE/index.m3u8';
+const LIVE_STREAM_FALLBACK = 'https://aljazeera-eng-hls-live.adaptive.level3.net/ajlive/aljazeera_english_720p/index.m3u8';
 const AJE_URL = 'https://www.aljazeera.com/live';
 // Fallback YouTube live stream for Al Jazeera English
 const YOUTUBE_AJE_URL = 'https://www.youtube.com/embed/0QJ42Y92s3E?autoplay=1&mute=1';

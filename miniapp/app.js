@@ -3,6 +3,7 @@
   const OWNER_ID = "8522820906";
   const LIVE_HLS_URL = "https://live-hls-web-aje.getaj.net/AJE/01.m3u8";
   const LIVE_FALLBACK_EMBED = "https://www.youtube-nocookie.com/embed/live_stream?channel=UCNye-wNBqNL5ZzHSJj3l8Bg&autoplay=1&mute=1";
+  const LIVE_HLS_FALLBACK = "https://aljazeera-eng-hls-live.adaptive.level3.net/ajlive/aljazeera_english_720p/index.m3u8";
   const SAMPLE_MERLIN_VIDEO = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 
   let hlsInstance = null;
@@ -458,6 +459,15 @@
     document.getElementById('btn-chan-live').classList.add('active');
     document.getElementById('btn-chan-merlin').classList.remove('active');
 
+    // Timeout fallback: if HLS doesn't start within 8s, switch to YouTube embed
+    let fallbackTimer = setTimeout(() => {
+      if (video.paused || video.ended || video.error) {
+        video.style.display = 'none';
+        iframe.style.display = 'block';
+        iframe.src = LIVE_FALLBACK_EMBED;
+      }
+    }, 8000);
+
     if (Hls.isSupported()) {
       iframe.style.display = 'none';
       video.style.display = 'block';
@@ -465,18 +475,41 @@
       hlsInstance = new Hls({ enableWorker: true });
       hlsInstance.loadSource(LIVE_HLS_URL);
       hlsInstance.attachMedia(video);
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        clearTimeout(fallbackTimer);
+        video.play().catch(() => {});
+      });
       hlsInstance.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
-          // Fallback to official responsive embed iframe
-          video.style.display = 'none';
-          iframe.style.display = 'block';
-          iframe.src = LIVE_FALLBACK_EMBED;
+          clearTimeout(fallbackTimer);
+          // Try HLS fallback URL first
+          hlsInstance.destroy();
+          hlsInstance = new Hls({ enableWorker: true });
+          hlsInstance.loadSource(LIVE_HLS_FALLBACK);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            clearTimeout(fallbackTimer);
+            video.play().catch(() => {});
+          });
+          hlsInstance.on(Hls.Events.ERROR, () => {
+            clearTimeout(fallbackTimer);
+            // Fallback to YouTube embed
+            video.style.display = 'none';
+            iframe.style.display = 'block';
+            iframe.src = LIVE_FALLBACK_EMBED;
+          });
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = LIVE_HLS_URL;
-      video.play().catch(() => {});
+      video.play().catch(() => {
+        video.src = LIVE_HLS_FALLBACK;
+        video.play().catch(() => {
+          video.style.display = 'none';
+          iframe.style.display = 'block';
+          iframe.src = LIVE_FALLBACK_EMBED;
+        });
+      });
     } else {
       video.style.display = 'none';
       iframe.style.display = 'block';
