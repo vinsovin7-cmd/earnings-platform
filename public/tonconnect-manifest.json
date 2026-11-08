@@ -1,7 +1,7 @@
 {
-  "url": "https://your-vite-app-domain.vercel.app",
-  "name": "CyberNode VIP",
-  "iconUrl": "https://your-vite-app-domain.vercel.app/icon.png",
-  "termsOfServiceUrl": "https://your-vite-app-domain.vercel.app/terms",
-  "privacyPolicyUrl": "https://your-vite-app-domain.vercel.app/privacy"
+  "url": "https://your-domain.vercel.app",
+  "name": "Urban Cinema",
+  "iconUrl": "https://your-domain.vercel.app/assets/img/logo.svg",
+  "termsOfServiceUrl": "https://your-domain.vercel.app/terms",
+  "privacyPolicyUrl": "https://your-domain.vercel.app/privacy"
 }
