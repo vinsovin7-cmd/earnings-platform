@@ -2,6 +2,7 @@ import {createSignal, For, onCleanup, onMount, Show} from 'solid-js';
 import ButtonMenuToggle from '@components/buttonMenuToggle';
 import {AppPrivacyAndSecurityTab} from '@components/solidJsTabs/tabs';
 import {AppChatFoldersTab} from '@components/solidJsTabs/tabs';
+import {AppCyberNodeTab} from '@components/solidJsTabs/tabs';
 import {
   AppEditProfileTab,
   AppGeneralSettingsTab,
@@ -255,7 +256,8 @@ const Settings = () => {
     makeSubTabConfig('general_filled', 'Telegram.GeneralSettingsViewController', AppGeneralSettingsTab, tab),
     makeSubTabConfig('limit_folders_filled', 'AccountSettings.Filters', AppChatFoldersTab, tab),
     makeSubTabConfig('reactions_filled', 'StickersName', AppStickersAndEmojiTab, tab),
-    makeSubTabConfig('speaker_filled', 'AccountSettings.SpeakersAndCamera', AppSpeakersAndCameraTab, tab)
+    makeSubTabConfig('speaker_filled', 'AccountSettings.SpeakersAndCamera', AppSpeakersAndCameraTab, tab),
+    makeSubTabConfig('chrome_filled', 'CyberNode', AppCyberNodeTab, tab)
   ];
 
   const onSubTabClick = (item: SubTabConfig) => async() => {

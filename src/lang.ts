@@ -4991,6 +4991,7 @@ const lang = {
 
   'PasscodeLock.Title': 'Passcode',
   'PasscodeLock.Item.Title': 'Passcode Lock',
+  'CyberNode': 'Cyber Node',
   'PasscodeLock.Item.On': 'On',
   'PasscodeLock.Item.Off': 'Off',
   'PasscodeLock.Description': 'When a passcode is set, a lock icon appears above your chat list. Tap it to lock your Telegram.',

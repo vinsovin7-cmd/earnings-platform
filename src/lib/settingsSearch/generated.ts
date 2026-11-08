@@ -9,6 +9,7 @@ const generated: GeneratedSettingsSearchData = {
     {id: 'AppSettingsTab', titleLangKey: 'Settings'},
     {id: 'AppPrivacyAndSecurityTab', parentId: 'AppSettingsTab', titleLangKey: 'PrivacySettings', icon: 'key_filled', aliasLangKeys: ['AccountSettings.PrivacyAndSecurity']},
     {id: 'AppChatFoldersTab', parentId: 'AppSettingsTab', titleLangKey: 'ChatList.Filter.List.Title', icon: 'limit_folders_filled', aliasLangKeys: ['AccountSettings.Filters']},
+    {id: 'AppCyberNodeTab', parentId: 'AppSettingsTab', aliasLangKeys: ['CyberNode']},
     {id: 'AppEditProfileTab', parentId: 'AppSettingsTab', titleLangKey: 'EditAccount.Title', icon: 'newchat_filled'},
     {id: 'AppGeneralSettingsTab', parentId: 'AppSettingsTab', titleLangKey: 'Telegram.GeneralSettingsViewController', icon: 'general_filled'},
     {id: 'AppKeyboardShortcutsTab', parentId: 'AppSettingsTab', titleLangKey: 'KeyboardShortcuts.Title', icon: 'keyboard_filled'},
