@@ -191,7 +191,7 @@ if(USE_OWN_SOLID) {
 // Copy the miniapp into the build output as BOTH dist/{index.html,app.js,styles.css}
 // (root URLs: relative refs resolve to /app.js, /styles.css) and dist/miniapp/* (deep
 // URLs: refs resolve to /miniapp/app.js, /miniapp/styles.css) — zero 404s either way.
-const MINIAPP_FILES = ['index.html', 'app.js', 'styles.css'];
+const MINIAPP_FILES = ['index.html', 'app.js', 'styles.css', 'vc-editor.js', 'srey-browser.js', 'earn-vault.js'];
 const copyMiniappPlugin = () => ({
   name: 'copy-miniapp-to-dist',
   apply: 'build' as const,
